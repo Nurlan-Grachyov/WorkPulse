@@ -1,9 +1,10 @@
 from enum import Enum
 
 from pydantic import EmailStr
-from sqlalchemy import Integer, String, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -36,4 +37,7 @@ class User(Base):
         "Task",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    meetings: Mapped[list["Meeting"]] = relationship(
+        "Meeting", secondary="meeting_participants", back_populates="users"
     )
