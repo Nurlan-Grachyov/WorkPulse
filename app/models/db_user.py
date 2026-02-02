@@ -1,5 +1,3 @@
-from enum import Enum
-
 from pydantic import EmailStr
 from sqlalchemy import Boolean
 from sqlalchemy import Enum as SQLEnum
@@ -7,12 +5,7 @@ from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-
-
-class Role(str, Enum):
-    USER = "user"
-    MANAGER = "manager"
-    ADMIN = "admin"
+from app.schemas.scheme_user import Role
 
 
 class User(Base):
@@ -25,8 +18,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[Role] = mapped_column(
-        SQLEnum(Role, name="user_role"), default=Role.USER
-    )  # "user", "manager" or "admin
+        SQLEnum(Role, name="user_role"), nullable=True,
+    )  # nothing or "admin"
 
     comments: Mapped[list["Comment"]] = relationship(
         "Comment",
