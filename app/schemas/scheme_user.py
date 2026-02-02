@@ -1,16 +1,14 @@
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
-from app.schemas.scheme_team import Role, TeamUserCreate
+from app.schemas.scheme_team import Role
 
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: Optional[Role] = None
-    team_links: Optional[TeamUserCreate] = None
 
     class Config:
         json_schema_extra = {
