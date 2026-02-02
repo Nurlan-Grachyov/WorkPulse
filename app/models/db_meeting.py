@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy import Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -17,6 +17,7 @@ class Meeting(Base):
     __tablename__ = "meeting"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(20), nullable=False)
     starts_at: Mapped[datetime] = mapped_column(default=datetime.now, nullable=False)
 
     users: Mapped[list["User"]] = relationship(

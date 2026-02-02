@@ -15,4 +15,6 @@ class Comment(Base):
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
 
     user: Mapped["User"] = relationship("User", back_populates="comments")
-    task: Mapped["Task"] = relationship("Task", back_populates="comments")
+    task: Mapped["Task"] = relationship(
+        "Task", back_populates="comments", cascade="all, delete-orphan"
+    )

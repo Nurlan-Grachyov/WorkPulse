@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import EmailStr
 from sqlalchemy import Boolean
 from sqlalchemy import Enum as SQLEnum
@@ -18,13 +20,13 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[Role] = mapped_column(
-        SQLEnum(Role, name="user_role"), nullable=True,
+        SQLEnum(Role, name="user_role"),
+        nullable=True,
     )  # nothing or "admin"
 
     comments: Mapped[list["Comment"]] = relationship(
         "Comment",
         back_populates="user",
-        cascade="all, delete-orphan",
     )
     tasks: Mapped[list["Task"]] = relationship(
         "Task",
@@ -33,4 +35,7 @@ class User(Base):
     )
     meetings: Mapped[list["Meeting"]] = relationship(
         "Meeting", secondary="meeting_participants", back_populates="users"
+    )
+    team_links: Mapped[Optional["TeamUser"]] = relationship(
+        "TeamUser", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )

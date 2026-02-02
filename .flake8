@@ -6,4 +6,5 @@ exclude =
     __pycache__,
     build,
     dist,
-    venv
+    venv,
+    app/migrations
