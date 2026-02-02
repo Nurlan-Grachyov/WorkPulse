@@ -3,13 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
-from app.schemas.scheme_team import TeamUserCreate
-
-
-class Role(str, Enum):
-    USER = "user"
-    MANAGER = "manager"
-    ADMIN = "admin"
+from app.schemas.scheme_team import Role, TeamUserCreate
 
 
 class UserCreate(BaseModel):
@@ -19,7 +13,7 @@ class UserCreate(BaseModel):
     team_links: Optional[TeamUserCreate] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "email": "manager@example.com",
                 "hashed_password": "$2b$12$...",

@@ -1,6 +1,12 @@
+from enum import Enum
+
 from pydantic import BaseModel
 
-from app.schemas.scheme_user import Role
+
+class Role(str, Enum):
+    USER = "user"
+    MANAGER = "manager"
+    ADMIN = "admin"
 
 
 class TeamUserCreate(BaseModel):
