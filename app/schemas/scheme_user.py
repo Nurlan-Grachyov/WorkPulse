@@ -1,36 +1,34 @@
+from enum import Enum
 from typing import Optional
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
-
-from app.schemas.scheme_team import Role
+from fastapi_users import schemas
 
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    role: Optional[Role] = None
+class Role(str, Enum):
+    USER = "user"
+    MANAGER = "manager"
+    ADMIN = "admin"
+
+
+class UserCreate(schemas.BaseUserCreate):
+    # BaseUserCreate already has email and password
+    role: Role = Role.USER
 
     class Config:
         json_schema_extra = {
             "example": {
                 "email": "manager@example.com",
-                "hashed_password": "$2b$12$...",
-                "role": None,
+                "password": "strong_password_123",
             }
         }
 
-    @field_validator("role")
-    @classmethod
-    def role_must_be_admin_or_none(cls, v):
-        if v is not None and v is not Role.ADMIN:
-            raise ValueError("Роль может быть только admin или отсутствовать")
-        return v
 
-
-class UserGet(BaseModel):
-    id: int
-    email: EmailStr
+class UserRead(schemas.BaseUser[int]):
+    # BaseUser already has email
+    id: UUID
     role: Optional[Role] = None
-    is_active: bool
 
-    model_config = ConfigDict(from_attributes=True)
+
+class UserUpdate(schemas.BaseUserUpdate):
+    role: Optional[Role] = None

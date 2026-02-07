@@ -14,7 +14,7 @@ class TaskCreate(BaseModel):
     deadline: datetime
 
     class Config:
-        scheme_extra = {
+        json_schema_extra = {
             "example": {
                 "user_id": 1,
                 "title": "Создать отчёт",

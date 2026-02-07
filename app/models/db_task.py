@@ -27,9 +27,16 @@ class Task(Base):
     )  # open, in process, done
     deadline: Mapped[datetime] = mapped_column(DateTime)
 
-    comments: Mapped[list["Comment"]] = relationship(
+    comments: Mapped[list["Comment"]] = relationship(  # noqa:  F821
         "Comment",
         back_populates="task",
         cascade="all, delete-orphan",
     )
-    user: Mapped["User"] = relationship("User", back_populates="tasks")
+    user: Mapped["User"] = relationship("User", back_populates="tasks")  # noqa:  F821
+
+    evaluation: Mapped["Evaluation"] = relationship(  # noqa:  F821
+        "Evaluation",
+        back_populates="task",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

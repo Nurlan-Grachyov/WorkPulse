@@ -8,7 +8,7 @@ class MeetingCreate(BaseModel):
     starts_at: datetime
 
     class Config:
-        scheme_extra = {
+        json_schema_extra = {
             "example": {
                 "title": "the first meeting",
                 "starts_at": "2026-02-10T18:00:00",

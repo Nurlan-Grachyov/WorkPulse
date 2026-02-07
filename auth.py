@@ -1,45 +1,46 @@
-from datetime import datetime, timezone, timedelta
+import os
+import uuid
 
-import jwt
-from passlib.context import CryptContext
+from dotenv import load_dotenv
+from fastapi import Depends
+from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, models
+from fastapi_users.authentication import (AuthenticationBackend,
+                                          BearerTransport, JWTStrategy)
+from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import SECRET_KEY, ALGORITHM
+from app.database import get_async_session
+from app.models.db_user import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
-
-
-def hash_password(password: str) -> str:
-    """
-    Преобразует пароль в хеш с использованием bcrypt.
-    """
-    return pwd_context.hash(password)
+load_dotenv()
+SECRET = os.getenv("SECRET_KEY")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Проверяет, соответствует ли введённый пароль сохранённому хешу.
-    """
-    return pwd_context.verify(plain_password, hashed_password)
+async def get_user_db(session: AsyncSession = Depends(get_async_session)):
+    yield SQLAlchemyUserDatabase(session, User)  # type: ignore[arg-type]
 
 
-def create_access_token(data: dict):
-    """
-    Создаёт JWT с payload (sub, role, id, exp).
-    """
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
+    yield UserManager(user_db)
 
 
-def create_refresh_token(data: dict):  # New
-    """
-    Создаёт рефреш-токен с длительным сроком действия.
-    """
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
+
+
+def get_jwt_strategy() -> JWTStrategy[models.UP, models.ID]:
+    return JWTStrategy(secret=SECRET, lifetime_seconds=3600)
+
+
+auth_backend = AuthenticationBackend(
+    name="jwt",
+    transport=bearer_transport,
+    get_strategy=get_jwt_strategy,
+)
+fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
+current_active_user = fastapi_users.current_user(active=True)
+current_superuser = fastapi_users.current_user(active=True, superuser=True)
+
+
+class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
+    reset_password_token_secret = SECRET
+    verification_token_secret = SECRET

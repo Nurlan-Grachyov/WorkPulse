@@ -18,14 +18,17 @@ class TeamUser(Base):  # Ассоциативная таблица
     )
 
     team: Mapped["Team"] = relationship("Team", back_populates="members")
-    user: Mapped["User"] = relationship("User", back_populates="team_links")
+    user: Mapped["User"] = relationship(  # noqa:  F821
+        "User", back_populates="team_links"
+    )  # noqa:  F821
 
 
 class Team(Base):
     __tablename__ = "teams"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    title: Mapped[str] = mapped_column(String(20), nullable=False)
+    slug: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
 
     members: Mapped[Optional["TeamUser"]] = relationship(
         "TeamUser", back_populates="team", cascade="all, delete-orphan"
