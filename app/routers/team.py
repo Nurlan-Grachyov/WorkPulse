@@ -1,62 +1,216 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from typing import List
+
+from fastapi import APIRouter, Body, Depends, HTTPException
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_async_session
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
-from app.schemas.scheme_team import TeamCreate, TeamGet
+from app.schemas.scheme_team import TeamGet
+from app.schemas.scheme_user import RoleTeam, UserRead
 from auth import current_superuser
 
-team_router = APIRouter()
+team_router = APIRouter(tags=["teams"], prefix="/team")
 
 
-@team_router.post("/create_team", response_model=TeamGet, status_code=201)
+@team_router.post(
+    "/create_team",
+    response_model=TeamGet,
+    status_code=201,
+    summary="Create new team",
+    description="Creates a team with unique title. Superadmin access only.",
+)
 async def create_team(
-    team: TeamCreate,
+    title_team: str = Body(..., embed=True, description="Team title"),
     superuser: User = Depends(current_superuser),
     db: AsyncSession = Depends(get_async_session),
-):
-    result = await db.execute(select(Team).where(...))
-    existing_team = result.scalars().first()
+) -> TeamGet:
+    """
+    Creates a new team in the system.
+
+    **Validations:**
+    - Team title must be unique
+    - Superadmin access only
+
+    **Returns:**
+    - Created team with generated slug
+    """
+    # Check team title uniqueness
+    existing_team = await db.scalar(select(Team).where(Team.title == title_team))
     if existing_team:
         raise HTTPException(
-            status_code=409, detail="Команда с таким названием уже существует"
+            status_code=409, detail="Team with this title already exists"
         )
 
-    new_team = Team(**team.model_dump())
-
+    # Create team (slug generated automatically)
+    new_team = Team(title=title_team)
     db.add(new_team)
     await db.commit()
-    await db.refresh(new_team)
+    await db.refresh(new_team)  # Refresh to get ID and slug
 
-    return new_team
+    return TeamGet.model_validate(new_team)
 
 
-@team_router.get("users_team", status_code=200)
+@team_router.get(
+    "/{slug_team}/users",
+    status_code=200,
+    summary="Get all team users",
+    description="Returns team users list with preloaded tasks and comments.",
+)
 async def get_users_of_team(
-    title_team: str,
+    slug_team: str,
     superuser: User = Depends(current_superuser),
     db: AsyncSession = Depends(get_async_session),
-):
+) -> List[UserRead]:
+    """
+    Retrieves all users of specific team.
+
+    **Features:**
+    - Eager loading of user tasks and comments (selectinload)
+    - JOIN through TeamUser association table
+    - Superadmin access only
+    """
     stmt = (
         select(User)
-        .join(TeamUser)
-        .join(Team)
-        .where(Team.title == title_team)
-        .options(selectinload(User.tasks), selectinload(User.comments))
+        .join(TeamUser, TeamUser.user_id == User.id)  # Join through association table
+        .join(Team, TeamUser.team_id == Team.id)  # Join with team
+        .where(Team.slug == slug_team)
+        .options(
+            selectinload(User.tasks),  # Preload user tasks
+            selectinload(User.comments),  # Preload user comments
+        )
     )
 
-    result = await db.execute(stmt)
-    return result.scalars().all()
+    users = await db.scalars(stmt)
+    return [UserRead.model_validate(user) for user in users]  # Return list of all users
 
 
-@team_router.post("add_user_to_team", status_code=200)
+@team_router.post(
+    "/{slug_team}/add_user",
+    status_code=201,
+    summary="Add user to team",
+    description="Adds existing user to team with specified role.",
+)
 async def add_user_to_team(
-    user_email: str,
-    team_title: str,
+    slug_team: str,
+    user_email: str = Body(..., embed=True, description="User email"),
+    role: RoleTeam = Body(..., embed=True, description="Team role (USER/MANAGER)"),
     superuser: User = Depends(current_superuser),
     db: AsyncSession = Depends(get_async_session),
-):
-    pass
+) -> dict:
+    """
+    Adds user to team by creating TeamUser association record.
+
+    **Validations:**
+    1. User exists
+    2. Team exists
+    3. User not already in team (user_id uniqueness per team)
+
+    **Returns:**
+    - Confirmation with association details
+    """
+    # 1. Find user by email
+    user = await db.scalar(select(User).where(User.email == user_email))
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {user_email} not found")
+
+    # 2. Find team by slug
+    team = await db.scalar(select(Team).where(Team.slug == slug_team))
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team {slug_team} not found")
+
+    # 3. Check uniqueness (one user per team)
+    existing_link = await db.scalar(
+        select(TeamUser).where(
+            and_(TeamUser.team_id == team.id, TeamUser.user_id == user.id)
+        )
+    )
+    if existing_link:
+        raise HTTPException(status_code=409, detail="User already in team")
+
+    # 4. Create association record
+    new_team_user = TeamUser(
+        team_id=team.id, user_id=user.id, role=role  # USER or MANAGER
+    )
+    db.add(new_team_user)
+    await db.commit()
+
+    return {
+        "message": "User added to team",
+        "team_user": {
+            "team_slug": team.slug,
+            "user_slug": user.slug,
+            "role": role.value,  # "user" or "manager"
+        },
+    }
+
+
+@team_router.patch(
+    "/{slug_team}/{slug_user}",
+    status_code=200,
+    summary="Change user role in team",
+    description="Changes user role with 'single manager per team' business logic.",
+)
+async def change_role_user(
+    slug_team: str,
+    slug_user: str,
+    role_data: RoleTeam = Body(..., embed=True, description="New role (USER/MANAGER)"),
+    db: AsyncSession = Depends(get_async_session),
+    superuser: User = Depends(current_superuser),
+) -> dict:
+    """
+    Changes user role in team enforcing "one manager per team" business rule.
+
+    **Algorithm when promoting to MANAGER:**
+    1. Downgrade all current team managers (except new one)
+    2. Assign new role to target user
+
+    **Other roles:** Simple role change without side effects.
+
+    **Returns:**
+    - Role change confirmation
+    """
+    # 1. Validate user existence
+    user = await db.scalar(select(User).where(User.slug == slug_user))
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {slug_user} not found")
+
+    # 2. Validate team existence
+    team = await db.scalar(select(Team).where(Team.slug == slug_team))
+    if not team:
+        raise HTTPException(status_code=404, detail=f"Team {slug_team} not found")
+
+    # 3. Validate TeamUser association exists
+    team_user = await db.scalar(
+        select(TeamUser).where(
+            and_(TeamUser.team_id == team.id, TeamUser.user_id == user.id)
+        )
+    )
+    if not team_user:
+        raise HTTPException(status_code=404, detail="User not in team")
+
+    # 4. 🎯 Business logic: enforce single MANAGER per team
+    if role_data == RoleTeam.MANAGER:
+        # Bulk downgrade other team managers (atomic operation!)
+        await db.execute(
+            update(TeamUser)
+            .where(
+                TeamUser.team_id == team.id,
+                TeamUser.role == RoleTeam.MANAGER,
+                TeamUser.user_id != user.id,  # Exclude new manager
+            )
+            .values(role=RoleTeam.USER)
+        )
+
+    # 5. Assign new role (USER or MANAGER)
+    team_user.role = role_data
+    await db.commit()
+
+    return {
+        "message": "Role updated successfully!",
+        "user_slug": slug_user,
+        "team_slug": slug_team,
+        "new_role": team_user.role.value,  # "user" or "manager"
+    }

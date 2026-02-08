@@ -1,11 +1,12 @@
 from typing import Optional
 
+from slugify import slugify
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.schemas.scheme_user import Role
+from app.schemas.scheme_user import RoleTeam
 
 
 class TeamUser(Base):  # Ассоциативная таблица
@@ -13,9 +14,9 @@ class TeamUser(Base):  # Ассоциативная таблица
 
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    role: Mapped[Role] = mapped_column(
-        SQLEnum(Role, name="team_role"), nullable=False, default=Role.USER
-    )
+    role: Mapped[RoleTeam] = mapped_column(
+        SQLEnum(RoleTeam, name="team_role"), nullable=False, default=RoleTeam.USER
+    )  # локальная должность в команде
 
     team: Mapped["Team"] = relationship("Team", back_populates="members")
     user: Mapped["User"] = relationship(  # noqa:  F821
@@ -33,3 +34,10 @@ class Team(Base):
     members: Mapped[Optional["TeamUser"]] = relationship(
         "TeamUser", back_populates="team", cascade="all, delete-orphan"
     )
+
+
+@event.listens_for(Team, "before_insert")
+@event.listens_for(Team, "before_update")
+def set_team_slug(mapper, connection, target):
+    if not target.slug and target.title:
+        target.slug = slugify(target.title)

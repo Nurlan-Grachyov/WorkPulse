@@ -1,25 +1,50 @@
 from contextlib import asynccontextmanager
 
+import bcrypt
 import uvicorn
-from fastapi import Depends, FastAPI
-from sqlalchemy.orm import configure_mappers
+from fastapi import FastAPI
+from sqlalchemy import select
 
 import app.models.db_comment  # Comment
 import app.models.db_evaluation  # Evaluation
 import app.models.db_meeting  # Meeting
 import app.models.db_task  # Task
 import app.models.db_team  # Team
-# import app.models.db_user  # User
+from app.database import async_session
 from app.models.db_user import User
+# import app.models.db_user  # User
 from app.routers.team import team_router
 from app.routers.user import user_router
-from app.schemas.scheme_user import UserCreate, UserRead, UserUpdate
-from auth import auth_backend, current_active_user, fastapi_users
+from app.schemas.scheme_user import (RoleCompany, UserCreate, UserRead,
+                                     UserUpdate)
+from auth import auth_backend, fastapi_users
 
 
 @asynccontextmanager
 async def lifespan(lifespan_app: FastAPI):
-    configure_mappers()
+    # Create ADMIN if there is no admin yet
+    async with async_session() as session:
+        exists_admin = session.scalar(
+            select(User).where(User.role == RoleCompany.ADMIN)
+        )
+        if not exists_admin:
+            raw_password = b"12345"
+            hashed_password = bcrypt.hashpw(raw_password, bcrypt.gensalt()).decode(
+                "utf-8"
+            )
+            print(f"✅ Хеш: {hashed_password[:20]}...")
+            user = User(
+                email="admin@example.com",
+                hashed_password=hashed_password,
+                role=RoleCompany.ADMIN,
+                is_superuser=True,
+                is_active=True,
+                is_verified=True,
+            )
+            session.add(user)
+            await session.commit()
+            print(f"✅ Админ создан: {user.email} (ID: {user.id})")
+
     yield
 
 
@@ -46,17 +71,11 @@ fastapi_app.include_router(
 fastapi_app.include_router(
     fastapi_users.get_users_router(UserRead, UserUpdate),
     prefix="/users",
-    tags=["users"],
+    tags=["fastapi-users"],
 )
 
 fastapi_app.include_router(user_router)
 fastapi_app.include_router(team_router)
-
-
-@fastapi_app.get("/authenticated-route")
-async def authenticated_route(user: User = Depends(current_active_user)):
-    return {"message": f"Hello {user.email}!"}
-
 
 if __name__ == "__main__":
     uvicorn.run(

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TeamCreate(BaseModel):
@@ -7,11 +7,14 @@ class TeamCreate(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "title": "Create employer's system",
+                "title": "Create an employer's system",
             }
         }
 
 
 class TeamGet(BaseModel):
     id: int
+    slug: str
     title: str
+
+    model_config = ConfigDict(from_attributes=True)
