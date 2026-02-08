@@ -40,10 +40,6 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         "TeamUser", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 
-    @hybrid_property
-    def username_slug(self) -> str:
-        return self.email.split("@")[0].replace(".", "-")
-
 
 @event.listens_for(User, "before_insert")
 @event.listens_for(User, "before_update")
