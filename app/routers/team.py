@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_async_session
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
-from app.schemas.scheme_team import TeamGet
+from app.schemas.scheme_team import TeamCreate, TeamGet
 from app.schemas.scheme_user import RoleTeam, UserRead
 from auth import current_superuser
 
@@ -23,7 +23,7 @@ team_router = APIRouter(tags=["teams"], prefix="/team")
     description="Creates a team with unique title. Superadmin access only.",
 )
 async def create_team(
-    title_team: str = Body(..., embed=True, description="Team title"),
+    team_in: TeamCreate,
     superuser: User = Depends(current_superuser),
     db: AsyncSession = Depends(get_async_session),
 ) -> TeamGet:
@@ -38,14 +38,16 @@ async def create_team(
     - Created team with generated slug
     """
     # Check team title uniqueness
-    existing_team = await db.scalar(select(Team).where(Team.title == title_team))
+    existing_team = await db.scalar(
+        select(Team).where(Team.title == team_in.title_team)
+    )
     if existing_team:
         raise HTTPException(
             status_code=409, detail="Team with this title already exists"
         )
 
     # Create team (slug generated automatically)
-    new_team = Team(title=title_team)
+    new_team = Team(title=team_in.title_team)
     db.add(new_team)
     await db.commit()
     await db.refresh(new_team)  # Refresh to get ID and slug
@@ -148,7 +150,7 @@ async def add_user_to_team(
 
 
 @team_router.patch(
-    "/{slug_team}/{slug_user}",
+    "/{slug_team}/{slug_user}/role}",
     status_code=200,
     summary="Change user role in team",
     description="Changes user role with 'single manager per team' business logic.",

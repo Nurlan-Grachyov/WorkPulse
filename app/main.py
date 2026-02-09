@@ -5,18 +5,19 @@ import uvicorn
 from fastapi import FastAPI
 from sqlalchemy import select
 
-import app.models.db_comment  # Comment
-import app.models.db_evaluation  # Evaluation
-import app.models.db_meeting  # Meeting
-import app.models.db_task  # Task
-import app.models.db_team  # Team
+import app.models.db_comment  # noqa:  F401
+import app.models.db_evaluation  # noqa:  F401
+import app.models.db_meeting  # noqa:  F401
+import app.models.db_task  # noqa:  F401
+import app.models.db_team  # noqa:  F401
 from app.database import async_session
 from app.models.db_user import User
+from app.routers.task import task_router
+
 # import app.models.db_user  # User
 from app.routers.team import team_router
 from app.routers.user import user_router
-from app.schemas.scheme_user import (RoleCompany, UserCreate, UserRead,
-                                     UserUpdate)
+from app.schemas.scheme_user import RoleCompany, UserCreate, UserRead, UserUpdate
 from auth import auth_backend, fastapi_users
 
 
@@ -76,6 +77,7 @@ fastapi_app.include_router(
 
 fastapi_app.include_router(user_router)
 fastapi_app.include_router(team_router)
+fastapi_app.include_router(task_router)
 
 if __name__ == "__main__":
     uvicorn.run(

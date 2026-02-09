@@ -20,7 +20,7 @@ class TeamUser(Base):  # Ассоциативная таблица
 
     team: Mapped["Team"] = relationship("Team", back_populates="members")
     user: Mapped["User"] = relationship(  # noqa:  F821
-        "User", back_populates="team_links"
+        "User", back_populates="team_link"
     )  # noqa:  F821
 
 
@@ -34,10 +34,12 @@ class Team(Base):
     members: Mapped[Optional["TeamUser"]] = relationship(
         "TeamUser", back_populates="team", cascade="all, delete-orphan"
     )
+    tasks: Mapped["Task"] = relationship(  # noqa:  F821
+        "Task", back_populates="team", cascade="all, delete-orphan"
+    )
 
 
 @event.listens_for(Team, "before_insert")
-@event.listens_for(Team, "before_update")
 def set_team_slug(mapper, connection, target):
     if not target.slug and target.title:
         target.slug = slugify(target.title)

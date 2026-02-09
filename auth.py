@@ -4,8 +4,11 @@ import uuid
 from dotenv import load_dotenv
 from fastapi import Depends
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, models
-from fastapi_users.authentication import (AuthenticationBackend,
-                                          BearerTransport, JWTStrategy)
+from fastapi_users.authentication import (
+    AuthenticationBackend,
+    BearerTransport,
+    JWTStrategy,
+)
 from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 

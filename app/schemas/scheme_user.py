@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi_users import schemas
-from pydantic import ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator, BaseModel, EmailStr
 
 
 class RoleCompany(str, Enum):
@@ -46,3 +46,42 @@ class UserRead(schemas.BaseUser[int]):
 
 class UserUpdate(schemas.BaseUserUpdate):
     role: Optional[RoleCompany] = None
+
+
+class TeamMemberUser(BaseModel):
+    slug: str
+    email: EmailStr
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TeamMemberLink(BaseModel):
+    role: RoleTeam
+    user: TeamMemberUser  # участник команды
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TeamShort(BaseModel):
+    slug: str
+    title: str
+    members: list[TeamMemberLink]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TeamLinkRead(BaseModel):
+    role: RoleTeam
+    team: TeamShort
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserReadWithTeamLink(BaseModel):
+    slug: str
+    email: EmailStr
+    is_active: bool
+    role: RoleCompany
+    team_link: TeamLinkRead | None
+
+    model_config = ConfigDict(from_attributes=True)
