@@ -30,21 +30,22 @@ async def get_task(
     - Ensures the task belongs to the same team as the current user.
     - Raises 404 if the task does not exist or belongs to another team.
     """
-    db_task = await db.scalar(
+    result_task = await db.scalars(
         select(Task).where(
             Task.slug == slug,
             Task.team_id == current_user.team_link.team_id,
         )
     )
+    task = result_task.one_or_none()
 
-    if not db_task:
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    return TaskGet.model_validate(db_task)
+    return TaskGet.model_validate(task)
 
 
 @task_router.post(
-    "",
+    "/create_task",
     response_model=TaskGet,
     summary="Create a new task",
     description="Create a new task. Manager access only.",
@@ -103,13 +104,13 @@ async def update_task(
     if current_user.team_link.role is not RoleTeam.MANAGER:
         raise HTTPException(status_code=403, detail="Manager access only")
 
-    db_task = await db.scalar(
+    result_task = await db.scalars(
         select(Task).where(
             Task.slug == slug,
             Task.team_id == current_user.team_link.team_id,
         )
     )
-
+    db_task = result_task.one_or_none()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
 
@@ -145,15 +146,16 @@ async def delete_task(
     if current_user.team_link.role is not RoleTeam.MANAGER:
         raise HTTPException(status_code=403, detail="Manager access only")
 
-    task_db = await db.scalar(
+    result = await db.scalars(
         select(Task).where(
             Task.slug == slug,
             Task.team_id == current_user.team_link.team_id,
         )
     )
+    task = result.one_or_none()
 
-    if not task_db:
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    await db.delete(task_db)
+    await db.delete(task)
     await db.commit()

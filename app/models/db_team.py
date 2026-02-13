@@ -28,8 +28,8 @@ class Team(Base):
     __tablename__ = "teams"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    slug: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    title: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
 
     members: Mapped[Optional["TeamUser"]] = relationship(
         "TeamUser", back_populates="team", cascade="all, delete-orphan"

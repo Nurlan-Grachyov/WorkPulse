@@ -2,12 +2,12 @@ from pydantic import BaseModel, ConfigDict
 
 
 class TeamCreate(BaseModel):
-    title: str
+    title_team: str
 
     class Config:
         json_schema_extra = {
             "example": {
-                "title": "Create an employer's system",
+                "title_team": "Create an employer's system",
             }
         }
 
