@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -9,7 +9,7 @@ from app.database import get_async_session
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_team import TeamCreate, TeamGet
-from app.schemas.scheme_user import RoleTeam, UserRead, UserReadWithTeamRole
+from app.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
 from auth import current_superuser
 
 team_router = APIRouter(tags=["teams"], prefix="/team")
@@ -23,9 +23,9 @@ team_router = APIRouter(tags=["teams"], prefix="/team")
     description="Creates a team with unique title. Superadmin access only.",
 )
 async def create_team(
-        team_in: TeamCreate,
-        superuser: User = Depends(current_superuser),
-        db: AsyncSession = Depends(get_async_session),
+    team_in: TeamCreate,
+    superuser: User = Depends(current_superuser),
+    db: AsyncSession = Depends(get_async_session),
 ) -> TeamGet:
     """
     Creates a new team in the system.
@@ -62,9 +62,9 @@ async def create_team(
     description="Returns team users list with preloaded tasks and comments.",
 )
 async def get_users_of_team(
-        slug_team: str,
-        superuser: User = Depends(current_superuser),
-        db: AsyncSession = Depends(get_async_session),
+    slug_team: str,
+    superuser: User = Depends(current_superuser),
+    db: AsyncSession = Depends(get_async_session),
 ) -> List[UserReadWithTeamRole]:
     """
     Retrieves all users of specific team.
@@ -74,15 +74,19 @@ async def get_users_of_team(
     - JOIN through TeamUser association table
     - Superadmin access only
     """
-    stmt = select(User) \
-        .options(selectinload(User.team_link)) \
-        .join(User.team_link) \
-        .join(TeamUser.team) \
+    stmt = (
+        select(User)
+        .options(selectinload(User.team_link))
+        .join(User.team_link)
+        .join(TeamUser.team)
         .where(Team.slug == slug_team)
+    )
 
     users = (await db.scalars(stmt)).all()
 
-    return [UserReadWithTeamRole.model_validate(user) for user in users] # Return list of all users
+    return [
+        UserReadWithTeamRole.model_validate(user) for user in users
+    ]  # Return list of all users
 
 
 @team_router.post(
@@ -92,11 +96,11 @@ async def get_users_of_team(
     description="Adds existing user to team with specified role.",
 )
 async def add_user_to_team(
-        slug_team: str,
-        user_email: str,
-        role: RoleTeam,
-        superuser: User = Depends(current_superuser),
-        db: AsyncSession = Depends(get_async_session),
+    slug_team: str,
+    user_email: str,
+    role: RoleTeam,
+    superuser: User = Depends(current_superuser),
+    db: AsyncSession = Depends(get_async_session),
 ) -> dict:
     """
     Adds user to team by creating TeamUser association record.
@@ -149,17 +153,17 @@ async def add_user_to_team(
 
 
 @team_router.patch(
-    "/{slug_team}/users/{slug_user}/role",
+    "/{slug_team}/users/{slug_user}/role/",
     status_code=200,
     summary="Change user role in team",
     description="Changes user role with 'single manager per team' business logic.",
 )
 async def change_role_user(
-        slug_team: str,
-        slug_user: str,
-        role_data: RoleTeam,
-        db: AsyncSession = Depends(get_async_session),
-        superuser: User = Depends(current_superuser),
+    slug_team: str,
+    slug_user: str,
+    role_data: RoleTeam,
+    db: AsyncSession = Depends(get_async_session),
+    superuser: User = Depends(current_superuser),
 ) -> dict:
     """
     Changes user role in team enforcing "one manager per team" business rule.
@@ -223,9 +227,11 @@ async def change_role_user(
     summary="Delete team",
     description="Superadmin deletes any team (except superadmins).",
 )
-async def delete_team(slug_team: str,
-                      superuser: User = Depends(current_superuser),
-                      db: AsyncSession = Depends(get_async_session)) -> None:
+async def delete_team(
+    slug_team: str,
+    superuser: User = Depends(current_superuser),
+    db: AsyncSession = Depends(get_async_session),
+) -> None:
     result = await db.scalars(select(Team).where(Team.slug == slug_team))
     team = result.one_or_none()
 

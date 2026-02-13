@@ -10,16 +10,18 @@ from auth import UserManager, current_active_user, current_superuser, get_user_m
 user_router = APIRouter(tags=["users"], prefix="/users")
 
 
-@user_router.get("/all_users/", response_model=list[UserRead], status_code=200,
-                 summary="Get users",
-                 description="Get users. Everybody access.")
-async def get_users(current_active_user: User = Depends(current_active_user),
-                    db: AsyncSession = Depends(get_async_session)) -> list[UserRead]:
-    users = await db.scalars(
-        select(User).where(
-            User.is_active
-        )
-    )
+@user_router.get(
+    "/all_users/",
+    response_model=list[UserRead],
+    status_code=200,
+    summary="Get users",
+    description="Get users. Everybody access.",
+)
+async def get_users(
+    current_active_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+) -> list[UserRead]:
+    users = await db.scalars(select(User).where(User.is_active))
 
     if not users:
         raise HTTPException(status_code=404, detail="Users not found")
@@ -27,14 +29,19 @@ async def get_users(current_active_user: User = Depends(current_active_user),
     return [UserRead.model_validate(user) for user in users]
 
 
-@user_router.get("/{slug}/", response_model=UserRead, status_code=200,
-                 summary="Get user",
-                 description="Get user with team and members info.. Everybody access.")
-async def get_user(slug: str, current_active_user: User = Depends(current_active_user),
-                   db: AsyncSession = Depends(get_async_session)) -> UserRead:
-    result = await db.scalars(
-        select(User).where(User.slug == slug, User.is_active)
-    )
+@user_router.get(
+    "/{slug}/",
+    response_model=UserRead,
+    status_code=200,
+    summary="Get user",
+    description="Get user with team and members info.. Everybody access.",
+)
+async def get_user(
+    slug: str,
+    current_active_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+) -> UserRead:
+    result = await db.scalars(select(User).where(User.slug == slug, User.is_active))
     user = result.one_or_none()
 
     if not user:
@@ -51,10 +58,10 @@ async def get_user(slug: str, current_active_user: User = Depends(current_active
     description="Updates global company role for user. Superadmin access only.",
 )
 async def update_user(
-        user_email: str,
-        data_for_update_user: UserUpdate,
-        superuser: User = Depends(current_superuser),
-        db: AsyncSession = Depends(get_async_session),
+    user_email: str,
+    data_for_update_user: UserUpdate,
+    superuser: User = Depends(current_superuser),
+    db: AsyncSession = Depends(get_async_session),
 ) -> UserRead:
     """
     Updates user's global company role (User.role field).
@@ -94,10 +101,10 @@ async def update_user(
     description="Superadmin deletes any user (except superadmins).",
 )
 async def delete_user(
-        user_email: str,
-        superuser: User = Depends(current_superuser),
-        db: AsyncSession = Depends(get_async_session),
-        user_manager: UserManager = Depends(get_user_manager),
+    user_email: str,
+    superuser: User = Depends(current_superuser),
+    db: AsyncSession = Depends(get_async_session),
+    user_manager: UserManager = Depends(get_user_manager),
 ) -> None:
     """
     Superadmin deletes user by slug with safety checks.
@@ -111,7 +118,9 @@ async def delete_user(
     - 204 No Content on success
     """
     # Find active user by slug
-    result = await db.scalars(select(User).where(User.email == user_email, User.is_active))
+    result = await db.scalars(
+        select(User).where(User.email == user_email, User.is_active)
+    )
     user = result.one_or_none()
 
     if not user:

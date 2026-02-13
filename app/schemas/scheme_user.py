@@ -3,7 +3,11 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi_users import schemas
-from pydantic import ConfigDict, field_validator, BaseModel, EmailStr, computed_field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    model_validator,
+)
 
 
 class RoleCompany(str, Enum):
@@ -52,14 +56,15 @@ class UserReadWithTeamRole(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def extract_team_role(cls, data):
-        if hasattr(data, 'team_link') and data.team_link:
+        if hasattr(data, "team_link") and data.team_link:
             data.team_role = data.team_link.role
         else:
             data.team_role = RoleTeam.USER
         return data
+
 
 class UserUpdate(schemas.BaseUserUpdate):
     role: Optional[RoleCompany] = None

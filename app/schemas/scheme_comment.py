@@ -1,18 +1,28 @@
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class CommentGet(BaseModel):
     id: int
     written_at: datetime
-    user_id: int
+    text: str
+    user_id: UUID
     task_id: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CommentCreate(BaseModel):
-    user_id: int
+    text: str
     task_id: int
 
     class Config:
-        json_schema_extra = {"example": {"user_id": 1, "task_id": 1}}
+        json_schema_extra = {
+            "example": {"text": "Any comment", "task_id": 1}
+        }
+
+
+class CommentUpdate(BaseModel):
+    text: str

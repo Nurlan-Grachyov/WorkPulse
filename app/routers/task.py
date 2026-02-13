@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.database import get_async_session
 from app.models.db_task import Task
@@ -20,9 +21,9 @@ task_router = APIRouter(prefix="/tasks", tags=["tasks"])
     status_code=200,
 )
 async def get_task(
-    slug: str,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        slug: str,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> TaskGet:
     """
     Get a single task by its slug within the current user's team.
@@ -30,10 +31,17 @@ async def get_task(
     - Ensures the task belongs to the same team as the current user.
     - Raises 404 if the task does not exist or belongs to another team.
     """
+
+    result = await db.scalars(select(User).options(joinedload(User.team_link)).where(User.id == current_user.id))
+    user = result.one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     result_task = await db.scalars(
         select(Task).where(
             Task.slug == slug,
-            Task.team_id == current_user.team_link.team_id,
+            Task.team_id == user.team_link.team_id,
         )
     )
     task = result_task.one_or_none()
@@ -52,10 +60,9 @@ async def get_task(
     status_code=201,
 )
 async def create_task(
-    task: TaskCreate,
-    assignee_id: int,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        task: TaskCreate,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> TaskGet:
     """
     Create a new task inside the current user's team.
@@ -63,16 +70,31 @@ async def create_task(
     - Only users with MANAGER role can create tasks.
     - The task is automatically bound to the manager's team and user.
     """
-    if current_user.team_link.role is not RoleTeam.MANAGER:
+    result = await db.execute(
+        select(User)
+        .options(joinedload(User.team_link))
+        .where(User.id == current_user.id)
+    )
+    user_with_team = result.scalars().one()
+
+    if user_with_team.team_link.role is not RoleTeam.MANAGER:
         raise HTTPException(status_code=403, detail="Manager access only")
 
     team_id = current_user.team_link.team_id
 
+    assignee_result = await db.scalars(
+        select(User).where(User.email == task.assignee_email, User.is_active)
+    )
+    assignee = assignee_result.one_or_none()
+
+    if not assignee:
+        raise HTTPException(status_code=404, detail="Assignee not found")
+
     # Bind task to current manager and their team
     db_task = Task(
-        **task.model_dump(),
+        **task.model_dump(exclude={'assignee_email'}),
         team_id=team_id,
-        user_id=assignee_id,
+        assignee_id=assignee.id,
     )
 
     db.add(db_task)
@@ -90,10 +112,10 @@ async def create_task(
     status_code=200,
 )
 async def update_task(
-    slug: str,
-    task: TaskUpdate,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        slug: str,
+        task: TaskUpdate,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> TaskGet:
     """
     Partially update a task identified by slug within the manager's team.
@@ -101,7 +123,14 @@ async def update_task(
     - Only managers of the team can update a task.
     - Supports partial update via TaskUpdate (PATCH semantics).
     """
-    if current_user.team_link.role is not RoleTeam.MANAGER:
+    result = await db.execute(
+        select(User)
+        .options(joinedload(User.team_link))
+        .where(User.id == current_user.id)
+    )
+    user_with_team = result.scalars().one()
+
+    if user_with_team.team_link.role is not RoleTeam.MANAGER:
         raise HTTPException(status_code=403, detail="Manager access only")
 
     result_task = await db.scalars(
@@ -133,9 +162,9 @@ async def update_task(
     status_code=204,
 )
 async def delete_task(
-    slug: str,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        slug: str,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> None:
     """
     Delete a task by its slug within the manager's team.
@@ -143,7 +172,14 @@ async def delete_task(
     - Only managers can delete tasks.
     - Raises 404 if the task is not found in the manager's team.
     """
-    if current_user.team_link.role is not RoleTeam.MANAGER:
+    result = await db.execute(
+        select(User)
+        .options(joinedload(User.team_link))
+        .where(User.id == current_user.id)
+    )
+    user_with_team = result.scalars().one()
+
+    if user_with_team.team_link.role is not RoleTeam.MANAGER:
         raise HTTPException(status_code=403, detail="Manager access only")
 
     result = await db.scalars(

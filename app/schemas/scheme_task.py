@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,7 +8,7 @@ from app.models.db_task import Status
 
 
 class TaskCreate(BaseModel):
-    assignee_id: int
+    assignee_email: str
     title: str
     description: Optional[str] = None
     status: Optional[Status] = Status.OPEN
@@ -17,10 +18,11 @@ class TaskCreate(BaseModel):
         from_attributes=True,
         json_schema_extra={
             "example": {
+                "assignee_email": "usual@example.com",
                 "title": "Создать отчёт",
                 "description": "Ежедневный отчёт по продажам",
                 "status": "open",
-                "deadline": "2026-02-10T18:00:00",
+                "deadline": "2026-02-20T18:00:00",
             }
         },
     )
@@ -28,11 +30,13 @@ class TaskCreate(BaseModel):
 
 class TaskGet(BaseModel):
     id: int
-    assignee_id: int
+    assignee_id: UUID
     title: str
-    descriptions: Optional[str]
+    description: Optional[str]
     status: Status
     deadline: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskUpdate(BaseModel):
@@ -41,3 +45,15 @@ class TaskUpdate(BaseModel):
     descriptions: Optional[str] = None
     status: Optional[Status] = None
     deadline: Optional[datetime] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "assignee_email": "usual@example.com",
+                "title": "Создать отчёт",
+                "description": "Ежедневный отчёт по продажам",
+                "status": "open",
+                "deadline": "2026-02-20T18:00:00",
+            }
+        },
+    )
