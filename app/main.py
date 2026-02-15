@@ -13,6 +13,7 @@ import app.models.db_team  # noqa:  F401
 from app.database import async_session
 from app.models.db_user import User
 from app.routers.comment import comment_router
+from app.routers.evaluation import evaluation_router
 from app.routers.task import task_router
 
 # import app.models.db_user  # User
@@ -80,6 +81,7 @@ fastapi_app.include_router(user_router)
 fastapi_app.include_router(team_router)
 fastapi_app.include_router(task_router)
 fastapi_app.include_router(comment_router)
+fastapi_app.include_router(evaluation_router)
 
 if __name__ == "__main__":
     uvicorn.run(

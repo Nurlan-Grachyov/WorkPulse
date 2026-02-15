@@ -1,5 +1,3 @@
-from typing import Optional
-
 from slugify import slugify
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Integer, String, event
@@ -31,10 +29,10 @@ class Team(Base):
     slug: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
 
-    members: Mapped[Optional["TeamUser"]] = relationship(
+    members: Mapped[list["TeamUser"]] = relationship(
         "TeamUser", back_populates="team", cascade="all, delete-orphan"
     )
-    tasks: Mapped["Task"] = relationship(  # noqa:  F821
+    tasks: Mapped[list["Task"]] = relationship(  # noqa:  F821
         "Task", back_populates="team", cascade="all, delete-orphan"
     )
 

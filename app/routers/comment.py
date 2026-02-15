@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,7 +66,7 @@ async def get_comments_by_task(
 
 
 @comment_router.get(
-    "/users",
+    "/users/",
     response_model=list[CommentGet],
     status_code=200,
     summary="Get comments by user email",
