@@ -19,9 +19,7 @@ class CommentCreate(BaseModel):
     task_id: int
 
     class Config:
-        json_schema_extra = {
-            "example": {"text": "Any comment", "task_id": 1}
-        }
+        json_schema_extra = {"example": {"text": "Any comment", "task_id": 1}}
 
 
 class CommentUpdate(BaseModel):

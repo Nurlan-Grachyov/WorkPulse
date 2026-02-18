@@ -10,10 +10,13 @@ import app.models.db_evaluation  # noqa:  F401
 import app.models.db_meeting  # noqa:  F401
 import app.models.db_task  # noqa:  F401
 import app.models.db_team  # noqa:  F401
+from app import admin  # noqa:  F401
 from app.database import async_session
 from app.models.db_user import User
+from app.routers.calendar import calendar_router
 from app.routers.comment import comment_router
 from app.routers.evaluation import evaluation_router
+from app.routers.meeting import meeting_router
 from app.routers.task import task_router
 
 # import app.models.db_user  # User
@@ -51,7 +54,7 @@ async def lifespan(lifespan_app: FastAPI):
     yield
 
 
-fastapi_app = FastAPI(title="WorkPulse", lifespan=lifespan)
+fastapi_app = FastAPI(title="WorkPulse", detail="Welcome", lifespan=lifespan)
 
 fastapi_app.include_router(
     fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
@@ -82,6 +85,8 @@ fastapi_app.include_router(team_router)
 fastapi_app.include_router(task_router)
 fastapi_app.include_router(comment_router)
 fastapi_app.include_router(evaluation_router)
+fastapi_app.include_router(meeting_router)
+fastapi_app.include_router(calendar_router)
 
 if __name__ == "__main__":
     uvicorn.run(

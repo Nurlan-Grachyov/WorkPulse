@@ -21,9 +21,9 @@ task_router = APIRouter(prefix="/tasks", tags=["tasks"])
     status_code=200,
 )
 async def get_task(
-        slug: str,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    slug: str,
+    current_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
 ) -> TaskGet:
     """
     Get a single task by its slug within the current user's team.
@@ -32,7 +32,11 @@ async def get_task(
     - Raises 404 if the task does not exist or belongs to another team.
     """
 
-    result = await db.scalars(select(User).options(joinedload(User.team_link)).where(User.id == current_user.id))
+    result = await db.scalars(
+        select(User)
+        .options(joinedload(User.team_link))
+        .where(User.id == current_user.id)
+    )
     user = result.one_or_none()
 
     if not user:
@@ -60,9 +64,9 @@ async def get_task(
     status_code=201,
 )
 async def create_task(
-        task: TaskCreate,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    task: TaskCreate,
+    current_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
 ) -> TaskGet:
     """
     Create a new task inside the current user's team.
@@ -92,7 +96,7 @@ async def create_task(
 
     # Bind task to current manager and their team
     db_task = Task(
-        **task.model_dump(exclude={'assignee_email'}),
+        **task.model_dump(exclude={"assignee_email"}),
         team_id=team_id,
         assignee_id=assignee.id,
     )
@@ -112,10 +116,10 @@ async def create_task(
     status_code=200,
 )
 async def update_task(
-        slug: str,
-        task: TaskUpdate,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    slug: str,
+    task: TaskUpdate,
+    current_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
 ) -> TaskGet:
     """
     Partially update a task identified by slug within the manager's team.
@@ -162,9 +166,9 @@ async def update_task(
     status_code=204,
 )
 async def delete_task(
-        slug: str,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    slug: str,
+    current_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
 ) -> None:
     """
     Delete a task by its slug within the manager's team.

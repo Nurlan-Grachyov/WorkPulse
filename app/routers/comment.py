@@ -61,7 +61,6 @@ async def get_comments_by_task(
     if not comments:
         raise HTTPException(status_code=404, detail="Comments not found")
 
-
     return [CommentGet.model_validate(comment) for comment in comments]
 
 

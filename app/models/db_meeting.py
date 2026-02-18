@@ -11,8 +11,7 @@ class Meeting(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(20), nullable=False)
-    starts_at: Mapped[datetime] = mapped_column(default=datetime.now, nullable=False)
-
+    starts_at: Mapped[datetime] = mapped_column(default=datetime.now(), nullable=False)
     users: Mapped[list["User"]] = relationship(  # noqa:  F821
         "User", secondary="meeting_participants", back_populates="meetings"
     )

@@ -6,25 +6,34 @@ from sqlalchemy.orm import joinedload, selectinload
 from app.database import get_async_session
 from app.models.db_evaluation import Evaluation
 from app.models.db_task import Task
-from app.models.db_team import TeamUser, Team
+from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
-from app.schemas.scheme_evaluation import EvaluationGet, EvaluationCreate
-from app.schemas.scheme_user import RoleTeam, RoleCompany
+from app.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
+from app.schemas.scheme_user import RoleCompany, RoleTeam
 from auth import current_active_user
 
 evaluation_router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 
 
 @evaluation_router.post("/create_evaluation", response_model=EvaluationGet)
-async def create_evaluation(evaluation: EvaluationCreate, current_user: User = Depends(current_active_user),
-                            db: AsyncSession = Depends(get_async_session)):
-    result = await db.scalars(select(Task).options(joinedload(Task.evaluation)).where(Task.id == evaluation.task_id))
+async def create_evaluation(
+    evaluation: EvaluationCreate,
+    current_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await db.scalars(
+        select(Task)
+        .options(joinedload(Task.evaluation))
+        .where(Task.id == evaluation.task_id)
+    )
     task = result.one_or_none()
 
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     elif task.evaluation:
-        raise HTTPException(status_code=409, detail="Evaluation for this task already exists")
+        raise HTTPException(
+            status_code=409, detail="Evaluation for this task already exists"
+        )
 
     result = await db.execute(
         select(User)
@@ -33,7 +42,10 @@ async def create_evaluation(evaluation: EvaluationCreate, current_user: User = D
     )
     user_with_team = result.scalars().one()
 
-    if user_with_team.team_link is None or user_with_team.team_link.role is not RoleTeam.MANAGER:
+    if (
+        user_with_team.team_link is None
+        or user_with_team.team_link.role is not RoleTeam.MANAGER
+    ):
         raise HTTPException(status_code=403, detail="Manager access only")
 
     evaluation = Evaluation(**evaluation.model_dump())
@@ -46,8 +58,10 @@ async def create_evaluation(evaluation: EvaluationCreate, current_user: User = D
 
 
 @evaluation_router.get("/get_evaluations")
-async def get_evaluations(current_user: User = Depends(current_active_user),
-                          db: AsyncSession = Depends(get_async_session)):
+async def get_evaluations(
+    current_user: User = Depends(current_active_user),
+    db: AsyncSession = Depends(get_async_session),
+):
     if current_user.role is not RoleCompany.ADMIN:
 
         result = await db.execute(
@@ -62,9 +76,7 @@ async def get_evaluations(current_user: User = Depends(current_active_user),
             users_result = await db.execute(
                 select(User)
                 .join(TeamUser, TeamUser.user_id == User.id)
-                .options(
-                    selectinload(User.tasks).selectinload(Task.evaluation)
-                )
+                .options(selectinload(User.tasks).selectinload(Task.evaluation))
                 .where(TeamUser.team_id == team_id)
             )
 
@@ -102,7 +114,8 @@ async def get_evaluations(current_user: User = Depends(current_active_user),
             result = await db.scalars(
                 select(User)
                 .options(joinedload(User.tasks).joinedload(Task.evaluation))
-                .where(User.id == current_user.id))
+                .where(User.id == current_user.id)
+            )
 
             db_user = result.unique().one()
 
@@ -125,8 +138,7 @@ async def get_evaluations(current_user: User = Depends(current_active_user),
 
     elif current_user.role is RoleCompany.ADMIN:
         result = await db.execute(
-            select(Team)
-            .options(
+            select(Team).options(
                 selectinload(Team.members)  # team -> team_users
                 .selectinload(TeamUser.user)  # team_user -> user
                 .selectinload(User.tasks)  # user -> tasks

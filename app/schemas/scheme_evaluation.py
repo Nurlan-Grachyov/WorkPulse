@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class EvaluationCreate(BaseModel):
@@ -11,6 +11,7 @@ class EvaluationCreate(BaseModel):
         if v < 1 or v > 5:
             raise ValueError("Оценка должна быть от 1 до 5")
         return v
+
 
 class EvaluationGet(BaseModel):
     id: int
