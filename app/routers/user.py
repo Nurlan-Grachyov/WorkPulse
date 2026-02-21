@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany, UserRead, UserUpdate
-from auth import UserManager, current_active_user, current_superuser, get_user_manager
+from auth import current_active_user, current_superuser
 
 user_router = APIRouter(tags=["users"], prefix="/users")
 
@@ -104,7 +104,6 @@ async def delete_user(
     user_email: str,
     superuser: User = Depends(current_superuser),
     db: AsyncSession = Depends(get_async_session),
-    user_manager: UserManager = Depends(get_user_manager),
 ) -> None:
     """
     Superadmin deletes user by slug with safety checks.

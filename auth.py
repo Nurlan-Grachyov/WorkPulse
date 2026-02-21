@@ -88,6 +88,10 @@ pwd_context = CryptContext(
 )
 
 
+def hash_password(raw_password: str) -> str:
+    return pwd_context.hash(raw_password)
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Проверяет, соответствует ли введённый пароль сохранённому хешу.

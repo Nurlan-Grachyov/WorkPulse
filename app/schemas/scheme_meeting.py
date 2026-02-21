@@ -7,13 +7,14 @@ class MeetingCreate(BaseModel):
     title: str
     starts_at: datetime
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "title": "the first meeting",
                 "starts_at": "2026-02-10 18:00:00",
             }
         }
+    )
 
     @field_validator("starts_at", mode="before")
     @classmethod

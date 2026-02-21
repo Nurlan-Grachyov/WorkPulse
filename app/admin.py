@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.database import engine
-from app.main import fastapi_app
 from app.models.db_comment import Comment
 from app.models.db_evaluation import Evaluation
 from app.models.db_meeting import Meeting
@@ -92,11 +91,13 @@ class AdminAuthBackend(AuthenticationBackend):
         return True
 
 
-auth_backend = AdminAuthBackend()
-admin = Admin(fastapi_app, engine, authentication_backend=auth_backend)
-admin.add_view(MeetingAdmin)
-admin.add_view(UserAdmin)
-admin.add_view(TaskAdmin)
-admin.add_view(TeamAdmin)
-admin.add_view(EvaluationAdmin)
-admin.add_view(CommentAdmin)
+def init_admin(app):
+    """Подключаем sqladmin к конкретному экземпляру FastAPI."""
+    auth_backend = AdminAuthBackend()
+    admin = Admin(app, engine, authentication_backend=auth_backend)
+    admin.add_view(MeetingAdmin)
+    admin.add_view(UserAdmin)
+    admin.add_view(TaskAdmin)
+    admin.add_view(TeamAdmin)
+    admin.add_view(EvaluationAdmin)
+    admin.add_view(CommentAdmin)

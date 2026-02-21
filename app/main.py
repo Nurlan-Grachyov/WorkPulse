@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 
-import bcrypt
 import uvicorn
 from fastapi import FastAPI
 from sqlalchemy import select
@@ -12,18 +11,16 @@ import app.models.db_task  # noqa:  F401
 import app.models.db_team  # noqa:  F401
 from app import admin  # noqa:  F401
 from app.database import async_session
-from app.models.db_user import User
+from app.models.db_user import User  # User
 from app.routers.calendar import calendar_router
 from app.routers.comment import comment_router
 from app.routers.evaluation import evaluation_router
 from app.routers.meeting import meeting_router
 from app.routers.task import task_router
-
-# import app.models.db_user  # User
 from app.routers.team import team_router
 from app.routers.user import user_router
 from app.schemas.scheme_user import RoleCompany, UserCreate, UserRead, UserUpdate
-from auth import auth_backend, fastapi_users
+from auth import auth_backend, fastapi_users, hash_password
 
 
 @asynccontextmanager
@@ -34,10 +31,9 @@ async def lifespan(lifespan_app: FastAPI):
             select(User).where(User.role == RoleCompany.ADMIN)
         )
         if not exists_admin:
-            raw_password = b"12345"
-            hashed_password = bcrypt.hashpw(raw_password, bcrypt.gensalt()).decode(
-                "utf-8"
-            )
+            raw_password = "12345"
+            hashed_password = hash_password(raw_password)
+
             print(f"✅ Хеш: {hashed_password[:20]}...")
             user = User(
                 email="admin@example.com",
@@ -50,43 +46,55 @@ async def lifespan(lifespan_app: FastAPI):
             session.add(user)
             await session.commit()
             print(f"✅ Админ создан: {user.email} (ID: {user.id})")
+        else:
+            pass
 
     yield
 
 
-fastapi_app = FastAPI(title="WorkPulse", detail="Welcome", lifespan=lifespan)
+def create_app():
+    fastapi_app = FastAPI(title="WorkPulse", detail="Welcome", lifespan=lifespan)
 
-fastapi_app.include_router(
-    fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
-)
-fastapi_app.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate),
-    prefix="/auth",
-    tags=["auth"],
-)
-fastapi_app.include_router(
-    fastapi_users.get_reset_password_router(),
-    prefix="/auth",
-    tags=["auth"],
-)
-fastapi_app.include_router(
-    fastapi_users.get_verify_router(UserRead),
-    prefix="/auth",
-    tags=["auth"],
-)
-fastapi_app.include_router(
-    fastapi_users.get_users_router(UserRead, UserUpdate),
-    prefix="/users",
-    tags=["fastapi-users"],
-)
+    fastapi_app.include_router(
+        fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
+    )
+    fastapi_app.include_router(
+        fastapi_users.get_register_router(UserRead, UserCreate),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    fastapi_app.include_router(
+        fastapi_users.get_reset_password_router(),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    fastapi_app.include_router(
+        fastapi_users.get_verify_router(UserRead),
+        prefix="/auth",
+        tags=["auth"],
+    )
+    fastapi_app.include_router(
+        fastapi_users.get_users_router(UserRead, UserUpdate),
+        prefix="/users",
+        tags=["fastapi-users"],
+    )
 
-fastapi_app.include_router(user_router)
-fastapi_app.include_router(team_router)
-fastapi_app.include_router(task_router)
-fastapi_app.include_router(comment_router)
-fastapi_app.include_router(evaluation_router)
-fastapi_app.include_router(meeting_router)
-fastapi_app.include_router(calendar_router)
+    fastapi_app.include_router(user_router)
+    fastapi_app.include_router(team_router)
+    fastapi_app.include_router(task_router)
+    fastapi_app.include_router(comment_router)
+    fastapi_app.include_router(evaluation_router)
+    fastapi_app.include_router(meeting_router)
+    fastapi_app.include_router(calendar_router)
+
+    from app.admin import init_admin
+
+    init_admin(fastapi_app)
+
+    return fastapi_app
+
+
+fastapi_app = create_app()
 
 if __name__ == "__main__":
     uvicorn.run(

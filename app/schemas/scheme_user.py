@@ -24,13 +24,14 @@ class RoleTeam(str, Enum):
 class UserCreate(schemas.BaseUserCreate):
     # BaseUserCreate already has email and password
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "manager@example.com",
                 "password": "strong_password_123",
             }
         }
+    )
 
     # @field_validator("email")
     # @classmethod
@@ -67,4 +68,4 @@ class UserReadWithTeamRole(BaseModel):
 
 
 class UserUpdate(schemas.BaseUserUpdate):
-    role: Optional[RoleCompany] = None
+    role: Optional[RoleCompany] = RoleCompany.USER
