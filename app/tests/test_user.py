@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.main import fastapi_app
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany
-from auth import current_active_user, current_superuser, hash_password
 
 
 @pytest.mark.asyncio
@@ -16,70 +15,6 @@ async def test_register_user(client: AsyncClient):
     assert response.status_code == 201
     data = response.json()
     assert data["email"] == "usual_user@example.com"
-
-
-@pytest.fixture(scope="session")
-async def admin_user(db_session: AsyncSession) -> User:
-    result = await db_session.scalars(
-        select(User).where(User.email == "admin@example.com")
-    )
-    admin = result.one_or_none()
-
-    if admin is None:
-        raw_password = "12345"
-        hashed_password = hash_password(raw_password)
-        admin = User(
-            email="admin@example.com",
-            hashed_password=hashed_password,
-            role=RoleCompany.ADMIN,
-            is_superuser=True,
-            is_active=True,
-            is_verified=True,
-        )
-        db_session.add(admin)
-        await db_session.commit()
-        await db_session.refresh(admin)
-
-    return admin
-
-
-@pytest.fixture(scope="session")
-async def usual_user(db_session: AsyncSession) -> User:
-    result = await db_session.scalars(
-        select(User).where(User.email == "user@example.com")
-    )
-    user = result.one_or_none()
-
-    if user is None:
-        raw_password = "12345"
-        hashed_password = hash_password(raw_password)
-        user = User(
-            email="user@example.com",
-            hashed_password=hashed_password,
-            role=RoleCompany.USER,
-            is_superuser=False,
-            is_active=True,
-            is_verified=True,
-        )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
-
-    return user
-
-
-@pytest.fixture
-def override_auth_admin(admin_user):
-    fastapi_app.dependency_overrides[current_superuser] = lambda: admin_user
-    yield
-    fastapi_app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def override_auth_user(usual_user):
-    fastapi_app.dependency_overrides[current_active_user] = lambda: usual_user
-    yield
-    fastapi_app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -96,7 +31,7 @@ async def test_register_admin(db_session, admin_user):
 
 @pytest.mark.asyncio
 async def test_get_users(
-    admin_user, db_session: AsyncSession, client: AsyncClient, override_auth_user
+        db_session: AsyncSession, client: AsyncClient, override_auth_user
 ):
     # print(f"{id(db_session)} test_get_users")
     result_user = await db_session.scalars(
@@ -167,3 +102,20 @@ async def test_delete_user(db_session, client, override_auth_admin):
         assert response.status_code == 204
     finally:
         fastapi_app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_update_user_not_found(client, override_auth_admin):
+    response = await client.patch("/users/nonexistent@test.com/", json={"role": RoleCompany.MANAGER})
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_superadmin_forbidden(db_session, client, override_auth_admin):
+    admin = User(email="super@test.com", role=RoleCompany.ADMIN, is_active=True, hashed_password="hash",
+                 is_superuser=True)
+    db_session.add(admin)
+    await db_session.commit()
+
+    response = await client.delete("/users/super@test.com/")
+    assert response.status_code == 403
