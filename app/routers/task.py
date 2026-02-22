@@ -7,7 +7,7 @@ from app.database import get_async_session
 from app.models.db_task import Task
 from app.models.db_user import User
 from app.schemas.scheme_task import TaskCreate, TaskGet, TaskUpdate
-from app.schemas.scheme_user import RoleTeam, RoleCompany
+from app.schemas.scheme_user import RoleCompany, RoleTeam
 from auth import current_active_user
 
 task_router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -69,8 +69,6 @@ async def get_task(
         return [TaskGet.model_validate(task) for task in tasks]
 
 
-
-
 @task_router.post(
     "/create_task",
     response_model=TaskGet,
@@ -96,7 +94,10 @@ async def create_task(
     )
     user_with_team = result.scalars().one()
 
-    if user_with_team.team_link is None or user_with_team.team_link.role is not RoleTeam.MANAGER:
+    if (
+        user_with_team.team_link is None
+        or user_with_team.team_link.role is not RoleTeam.MANAGER
+    ):
         raise HTTPException(status_code=403, detail="Manager access only")
 
     team_id = current_user.team_link.team_id

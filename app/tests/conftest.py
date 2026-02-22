@@ -9,7 +9,7 @@ from app.database import Base, get_async_session
 from app.main import fastapi_app
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany
-from auth import current_superuser, current_active_user, hash_password
+from auth import current_active_user, current_superuser, hash_password
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(TEST_DATABASE_URL)

@@ -1,8 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi.middleware.cors import CORSMiddleware
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 import app.models.db_comment  # noqa:  F401
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:fastapi_app",
         host="127.0.0.1",
-        port=8001,
+        port=8000,
         log_level="info",
         reload=True,
     )

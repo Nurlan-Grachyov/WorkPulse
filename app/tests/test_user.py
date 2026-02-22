@@ -31,7 +31,7 @@ async def test_register_admin(db_session, admin_user):
 
 @pytest.mark.asyncio
 async def test_get_users(
-        db_session: AsyncSession, client: AsyncClient, override_auth_user
+    db_session: AsyncSession, client: AsyncClient, override_auth_user
 ):
     # print(f"{id(db_session)} test_get_users")
     result_user = await db_session.scalars(
@@ -106,14 +106,21 @@ async def test_delete_user(db_session, client, override_auth_admin):
 
 @pytest.mark.asyncio
 async def test_update_user_not_found(client, override_auth_admin):
-    response = await client.patch("/users/nonexistent@test.com/", json={"role": RoleCompany.MANAGER})
+    response = await client.patch(
+        "/users/nonexistent@test.com/", json={"role": RoleCompany.MANAGER}
+    )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_delete_superadmin_forbidden(db_session, client, override_auth_admin):
-    admin = User(email="super@test.com", role=RoleCompany.ADMIN, is_active=True, hashed_password="hash",
-                 is_superuser=True)
+    admin = User(
+        email="super@test.com",
+        role=RoleCompany.ADMIN,
+        is_active=True,
+        hashed_password="hash",
+        is_superuser=True,
+    )
     db_session.add(admin)
     await db_session.commit()
 
