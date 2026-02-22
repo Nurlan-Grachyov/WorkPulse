@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 
 import uvicorn
 from fastapi import FastAPI
@@ -54,6 +55,14 @@ async def lifespan(lifespan_app: FastAPI):
 
 def create_app():
     fastapi_app = FastAPI(title="WorkPulse", detail="Welcome", lifespan=lifespan)
+
+    fastapi_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000"],  # порт фронта
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     fastapi_app.include_router(
         fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
