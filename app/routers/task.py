@@ -93,7 +93,6 @@ async def create_task(
         .where(User.id == current_user.id)
     )
     user_with_team = result.scalars().one()
-
     if (
         user_with_team.team_link is None
         or user_with_team.team_link.role is not RoleTeam.MANAGER

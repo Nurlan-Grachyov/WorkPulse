@@ -23,9 +23,6 @@ async def get_users(
 ) -> list[UserRead]:
     users = await db.scalars(select(User).where(User.is_active))
 
-    if not users:
-        raise HTTPException(status_code=404, detail="Users not found")
-
     return [UserRead.model_validate(user) for user in users]
 
 
@@ -116,7 +113,7 @@ async def delete_user(
     **Returns:**
     - 204 No Content on success
     """
-    # Find active user by slug
+    # Find active user by email
     result = await db.scalars(
         select(User).where(User.email == user_email, User.is_active)
     )
