@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import current_active_user, current_superuser
 from app.database import get_async_session
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany, UserRead, UserUpdate
-from app.auth import current_active_user, current_superuser
 
 user_router = APIRouter(tags=["users"], prefix="/users")
 

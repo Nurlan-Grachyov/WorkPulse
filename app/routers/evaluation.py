@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
+from app.auth import current_active_user
 from app.database import get_async_session
 from app.models.db_evaluation import Evaluation
 from app.models.db_task import Task
@@ -10,7 +11,6 @@ from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
 from app.schemas.scheme_user import RoleCompany, RoleTeam
-from app.auth import current_active_user
 
 evaluation_router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 

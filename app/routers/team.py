@@ -5,12 +5,12 @@ from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.auth import current_superuser
 from app.database import get_async_session
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_team import TeamCreate, TeamGet
 from app.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
-from app.auth import current_superuser
 
 team_router = APIRouter(tags=["teams"], prefix="/team")
 

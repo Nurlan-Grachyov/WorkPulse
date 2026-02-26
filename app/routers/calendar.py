@@ -5,10 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.auth import current_active_user
 from app.database import get_async_session
 from app.models.db_meeting import Meeting
 from app.models.db_user import User
-from app.auth import current_active_user
 
 calendar_router = APIRouter(prefix="/calendar", tags=["calendar"])
 

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
+from app.auth import verify_password
 from app.database import engine
 from app.models.db_comment import Comment
 from app.models.db_evaluation import Evaluation
@@ -15,7 +16,6 @@ from app.models.db_task import Task
 from app.models.db_team import Team
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany
-from app.auth import verify_password
 
 
 class MeetingAdmin(ModelView, model=Meeting):

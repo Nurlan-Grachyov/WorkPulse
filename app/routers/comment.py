@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import current_active_user
 from app.database import get_async_session
 from app.models.db_comment import Comment
 from app.models.db_task import Task
 from app.models.db_user import User
 from app.schemas.scheme_comment import CommentCreate, CommentGet, CommentUpdate
-from app.auth import current_active_user
 
 comment_router = APIRouter(prefix="/comments", tags=["comments"])
 
