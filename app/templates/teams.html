@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Команды</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/">Вход</a>
+        <a href="/users">Пользователи</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+        <a href="/calendar">Календарь</a>
+    </div>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>🏢 Команды</h3>
+    <input id="team_title" placeholder="Название команды (TeamCreate.title_team)">
+    <br>
+    <button type="button" onclick="createTeam()">➕ Создать команду</button>
+    <pre id="team_output"></pre>
+
+    <h4>Пользователи команды по slug</h4>
+    <input id="team_slug_users" placeholder="slug команды">
+    <br>
+    <button type="button" onclick="loadTeamUsers()">Загрузить пользователей команды</button>
+    <pre id="team_users_output"></pre>
+
+    <h4>Добавить пользователя в команду</h4>
+    <input id="add_team_slug" placeholder="slug команды">
+    <br>
+    <input id="add_user_email" placeholder="email пользователя">
+    <br>
+    <select id="add_user_role">
+        <option value="user">USER</option>
+        <option value="manager">MANAGER</option>
+    </select>
+    <br>
+    <button type="button" onclick="addUserToTeam()">Добавить в команду</button>
+    <pre id="add_team_user_output"></pre>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>

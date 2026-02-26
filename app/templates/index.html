@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Вход</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>📝 Регистрация</h3>
+    <input id="reg_email" placeholder="email">
+    <br>
+    <input id="reg_password" type="password" placeholder="пароль">
+    <br>
+    <button type="button" onclick="registerUser()">✉ Зарегистрировать</button>
+</div>
+
+<div class="form">
+    <h3>🔐 Авторизация</h3>
+    <input id="login_username" value="admin@example.com" placeholder="email или username">
+    <br>
+    <input id="login_password" type="password" value="12345" placeholder="пароль">
+    <br>
+    <button type="button" onclick="login()">✅ Авторизоваться</button>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/users">Пользователи</a>
+        <a href="/teams">Команды</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+        <a href="/calendar">Календарь</a>
+    </div>
+    <br>
+    <button type="button" onclick="logoutUser()">🚪 Выйти</button>
+</div>
+
+<div class="form">
+    <h3>📚 Документация</h3>
+    <a href="http://localhost:3000/docs" target="_blank">📖 Swagger UI</a>
+    <a href="http://localhost:3000/redoc" target="_blank">📚 ReDoc</a>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>

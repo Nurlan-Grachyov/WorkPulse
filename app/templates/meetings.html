@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Митинги</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/">Вход</a>
+        <a href="/users">Пользователи</a>
+        <a href="/teams">Команды</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/calendar">Календарь</a>
+    </div>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>📅 Создать митинг (MANAGER/ADMIN)</h3>
+    <input id="meeting_title" placeholder="MeetingCreate.title">
+    <br>
+    <input id="meeting_starts_at" placeholder="MeetingCreate.starts_at (YYYY-MM-DDTHH:MM)">
+    <br>
+    <textarea id="meeting_description" placeholder="MeetingCreate.description (если есть)"></textarea>
+    <br>
+    <button type="button" onclick="createMeeting()">➕ Создать митинг</button>
+    <pre id="meeting_output"></pre>
+
+    <h4>Получить митинг по id</h4>
+    <input id="get_meeting_id" placeholder="/meetings/{meeting_id}">
+    <br>
+    <button type="button" onclick="loadMeeting()">Загрузить митинг</button>
+    <pre id="get_meeting_output"></pre>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>
