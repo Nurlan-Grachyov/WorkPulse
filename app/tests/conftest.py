@@ -14,7 +14,7 @@ from app.models.db_task import Task
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany, RoleTeam
-from auth import hash_password
+from app.auth import hash_password
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(TEST_DATABASE_URL)

@@ -9,7 +9,7 @@ from app.models.db_meeting import Meeting
 from app.models.db_user import User
 from app.schemas.scheme_meeting import MeetingCreate, MeetingGet
 from app.schemas.scheme_user import RoleCompany, RoleTeam
-from auth import current_active_user, has_manager_rights
+from app.auth import current_active_user, has_manager_rights
 
 meeting_router = APIRouter(prefix="/meetings", tags=["meetings"])
 

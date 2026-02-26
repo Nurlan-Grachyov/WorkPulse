@@ -10,7 +10,7 @@ from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_team import TeamCreate, TeamGet
 from app.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
-from auth import current_superuser
+from app.auth import current_superuser
 
 team_router = APIRouter(tags=["teams"], prefix="/team")
 

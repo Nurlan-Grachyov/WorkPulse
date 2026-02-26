@@ -10,7 +10,7 @@ from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
 from app.schemas.scheme_user import RoleCompany, RoleTeam
-from auth import current_active_user
+from app.auth import current_active_user
 
 evaluation_router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 

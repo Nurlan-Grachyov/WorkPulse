@@ -15,7 +15,7 @@ from app.models.db_task import Task
 from app.models.db_team import Team
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany
-from auth import verify_password
+from app.auth import verify_password
 
 
 class MeetingAdmin(ModelView, model=Meeting):

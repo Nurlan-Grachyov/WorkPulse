@@ -1,3 +1,7 @@
+from fastapi import Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -21,16 +25,15 @@ from app.routers.task import task_router
 from app.routers.team import team_router
 from app.routers.user import user_router
 from app.schemas.scheme_user import RoleCompany, UserCreate, UserRead, UserUpdate
-from auth import auth_backend, fastapi_users, hash_password
-
+from app.auth import auth_backend, fastapi_users, hash_password
 
 @asynccontextmanager
 async def lifespan(lifespan_app: FastAPI):
-    # Create ADMIN if there is no admin yet
     async with async_session() as session:
-        exists_admin = session.scalar(
+        result_exists_admin = await session.scalars(
             select(User).where(User.role == RoleCompany.ADMIN)
         )
+        exists_admin = result_exists_admin.one_or_none()
         if not exists_admin:
             raw_password = "12345"
             hashed_password = hash_password(raw_password)
@@ -46,15 +49,18 @@ async def lifespan(lifespan_app: FastAPI):
             )
             session.add(user)
             await session.commit()
+            await session.refresh(user)
             print(f"✅ Админ создан: {user.email} (ID: {user.id})")
-        else:
-            pass
 
     yield
 
 
 def create_app():
     fastapi_app = FastAPI(title="WorkPulse", detail="Welcome", lifespan=lifespan)
+
+    fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+    templates = Jinja2Templates(directory="app/templates")
 
     fastapi_app.add_middleware(
         CORSMiddleware,
@@ -87,6 +93,13 @@ def create_app():
         prefix="/users",
         tags=["fastapi-users"],
     )
+
+    @fastapi_app.get("/", response_class=HTMLResponse)
+    async def index(request: Request):
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request},
+        )
 
     fastapi_app.include_router(user_router)
     fastapi_app.include_router(team_router)

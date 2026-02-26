@@ -7,7 +7,7 @@ from app.models.db_comment import Comment
 from app.models.db_task import Task
 from app.models.db_user import User
 from app.schemas.scheme_comment import CommentCreate, CommentGet, CommentUpdate
-from auth import current_active_user
+from app.auth import current_active_user
 
 comment_router = APIRouter(prefix="/comments", tags=["comments"])
 
