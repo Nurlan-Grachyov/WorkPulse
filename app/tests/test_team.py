@@ -14,7 +14,6 @@ from app.routers.team import (
 )
 from app.schemas.scheme_team import TeamCreate
 from app.schemas.scheme_user import RoleTeam
-from app.tests.conftest import db_session
 
 
 @pytest.mark.asyncio
@@ -44,7 +43,7 @@ async def test_create_team_unit(db_session: AsyncSession, admin_user: User):
 @pytest.mark.asyncio
 async def test_get_users_of_team(create_team_with_users, admin_user, db_session):
     users = await get_users_of_team("team_with_users", admin_user, db_session)
-    assert len(users) == 1
+    assert len(users) == 2
 
 
 @pytest.mark.asyncio

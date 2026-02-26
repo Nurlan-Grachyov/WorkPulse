@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import and_, select
@@ -7,11 +7,14 @@ from sqlalchemy.orm import joinedload
 
 from app.database import Base, get_async_session
 from app.main import fastapi_app
+from app.models.db_comment import Comment
+from app.models.db_evaluation import Evaluation
+from app.models.db_meeting import Meeting
 from app.models.db_task import Task
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany, RoleTeam
-from auth import current_active_user, current_superuser, hash_password
+from auth import hash_password
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(TEST_DATABASE_URL)
@@ -47,19 +50,28 @@ async def app(db_session):
     fastapi_app.dependency_overrides.clear()
 
 
-# @pytest.fixture
-# async def client(app, db_session):
-#     async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
-#         yield db_session
-#
-#     fastapi_app.dependency_overrides[get_async_session] = override_get_session
-#
-#     transport = ASGITransport(app=fastapi_app)
-#     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-#         yield ac
-#
-#     if get_async_session in fastapi_app.dependency_overrides:
-#         del fastapi_app.dependency_overrides[get_async_session]
+@pytest.fixture
+async def usual_user(db_session):
+    result = await db_session.scalars(
+        select(User).where(User.email == "usual_user@example.com")
+    )
+    usual_user = result.one_or_none()
+
+    if usual_user is None:
+        raw_password = "12345"
+        hashed_password = hash_password(raw_password)
+        usual_user = User(
+            email="usual_user@example.com",
+            hashed_password=hashed_password,
+            role=RoleCompany.USER,
+            is_active=True,
+            is_verified=True,
+        )
+        db_session.add(usual_user)
+        await db_session.commit()
+        await db_session.refresh(usual_user)
+
+    yield usual_user
 
 
 @pytest.fixture
@@ -113,7 +125,7 @@ async def team_manager_user(db_session: AsyncSession) -> User:
 
 
 @pytest.fixture
-async def create_team_with_users(db_session, team_manager_user):
+async def create_team_with_users(db_session, team_manager_user, usual_user):
     result_team = await db_session.scalars(
         select(Team).where(Team.title == "team with users")
     )
@@ -124,21 +136,30 @@ async def create_team_with_users(db_session, team_manager_user):
         await db_session.commit()
         await db_session.refresh(new_team)
 
-    result_existing_link = await db_session.scalars(
+    result_existing_links = await db_session.scalars(
         select(TeamUser).where(
             and_(
                 TeamUser.team_id == new_team.id,
-                TeamUser.user_id == team_manager_user.id,
+                TeamUser.user_id.in_([team_manager_user.id, usual_user.id]),
             )
         )
     )
-    existing_link = result_existing_link.one_or_none()
-    if not existing_link:
-        new_team_user = TeamUser(
-            team_id=new_team.id, user_id=team_manager_user.id, role=RoleTeam.MANAGER
-        )
-        db_session.add(new_team_user)
+    existing_links = result_existing_links.all()
+
+    existing_user_ids = {link.user_id for link in existing_links}
+
+    new_links = []
+    for user_id, role in [
+        (team_manager_user.id, RoleTeam.MANAGER),
+        (usual_user.id, RoleTeam.USER),
+    ]:
+        if user_id not in existing_user_ids:
+            new_links.append(TeamUser(team_id=new_team.id, user_id=user_id, role=role))
+
+    if new_links:
+        db_session.add_all(new_links)
         await db_session.commit()
+
     yield new_team
 
 
@@ -157,7 +178,7 @@ async def create_team_without_users(db_session):
 
 
 @pytest.fixture
-async def create_test_task(db_session, team_manager_user):
+async def create_test_task(db_session, create_team_with_users, team_manager_user):
     result_task = await db_session.scalars(
         select(Task).where(Task.title == "test task")
     )
@@ -185,15 +206,43 @@ async def create_test_task(db_session, team_manager_user):
         await db_session.flush()
 
 
-# @pytest.fixture
-# def override_auth_admin(admin_user):
-#     fastapi_app.dependency_overrides[current_superuser] = lambda: admin_user
-#     yield
-#     fastapi_app.dependency_overrides.clear()
-#
-#
-# @pytest.fixture
-# def override_auth_user(usual_user):
-#     fastapi_app.dependency_overrides[current_active_user] = lambda: usual_user
-#     yield
-#     fastapi_app.dependency_overrides.clear()
+@pytest.fixture
+async def create_test_meeting(create_team_with_users, team_manager_user, db_session):
+    current_date_plus_one = datetime.now() + timedelta(days=1)
+    meeting = Meeting(title="first meeting", starts_at=current_date_plus_one)
+    meeting.users.append(team_manager_user)
+
+    db_session.add(meeting)
+    await db_session.commit()
+    await db_session.refresh(meeting)
+
+    yield meeting
+
+
+@pytest.fixture
+async def create_test_evaluation(
+    create_team_with_users, create_test_task, team_manager_user, db_session
+):
+    result_evaluation = await db_session.scalars(
+        select(Evaluation).where(Evaluation.task_id == create_test_task.id)
+    )
+    evaluation = result_evaluation.one_or_none()
+    if evaluation is None:
+        evaluation = Evaluation(evaluation=4, task_id=create_test_task.id)
+
+        db_session.add(evaluation)
+        await db_session.refresh(evaluation)
+        await db_session.commit()
+    yield evaluation
+
+
+@pytest.fixture
+async def create_test_comment(team_manager_user, create_test_task, db_session):
+    comment = Comment(
+        text="Well done", user_id=team_manager_user.id, task_id=create_test_task.id
+    )
+    db_session.add(comment)
+    await db_session.commit()
+    await db_session.refresh(comment)
+
+    yield comment

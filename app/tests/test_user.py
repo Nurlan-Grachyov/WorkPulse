@@ -34,7 +34,7 @@ async def test_update_user(db_session, admin_user, team_manager_user):
 
 @pytest.mark.asyncio
 async def test_delete_user(
-        db_session: AsyncSession, admin_user: User, team_manager_user: User
+    db_session: AsyncSession, admin_user: User, team_manager_user: User
 ):
     await delete_user(
         user_email=team_manager_user.email,

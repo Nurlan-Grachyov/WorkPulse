@@ -24,9 +24,8 @@ async def get_info(
     if period == "day":
         start = datetime.combine(today, datetime.min.time())
         end = datetime.combine(today, datetime.max.time())
-    else:  # "month"
+    else:  # month
         start = today.replace(day=1)
-        # простой вариант: +31 дня и обрезать до 1-го
         next_month = (start + timedelta(days=31)).replace(day=1)
         end = datetime.combine(next_month, datetime.min.time())
 
@@ -40,9 +39,7 @@ async def get_info(
         )
         .order_by(Meeting.starts_at)
         .options(
-            joinedload(Meeting.users).joinedload(
-                User.tasks
-            ),  # ← Путь: Meeting.users.tasks!
+            joinedload(Meeting.users).joinedload(User.tasks),
         )
     )
     data = result.unique().all()

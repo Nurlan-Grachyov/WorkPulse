@@ -4,9 +4,8 @@ import pytest
 from sqlalchemy import select
 
 from app.models.db_task import Status, Task
-from app.routers.task import create_task, get_task, update_task, delete_task
+from app.routers.task import create_task, delete_task, get_task, update_task
 from app.schemas.scheme_task import TaskCreate, TaskUpdate
-from app.tests.conftest import db_session
 
 
 @pytest.mark.asyncio
@@ -44,10 +43,15 @@ async def test_update_task(
     )
     assert updated_task.title == "updated test task"
 
+
 @pytest.mark.xfail
 @pytest.mark.asyncio
-async def test_delete_task(db_session, create_team_with_users, team_manager_user, create_test_task):
+async def test_delete_task(
+    db_session, create_team_with_users, team_manager_user, create_test_task
+):
     await delete_task(create_test_task.slug, team_manager_user, db_session)
 
-    result_task = await db_session.scalars(select(Task).where(Task.slug == create_test_task.slug))
+    result_task = await db_session.scalars(
+        select(Task).where(Task.slug == create_test_task.slug)
+    )
     assert result_task.one_or_none() is None
