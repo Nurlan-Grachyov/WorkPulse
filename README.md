@@ -1,4 +1,3 @@
-```markdown
 # WorkPulse – Система управления бизнесом (MVP)
 
 WorkPulse — упрощённая система управления командой внутри компании. Приложение позволяет регистрировать пользователей, объединять их в команды, ставить задачи, оценивать работу и планировать встречи.
@@ -131,14 +130,14 @@ poetry install
 
 Создайте `.env` и укажите:
 
-```env
+```
 DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/workpulse
 SECRET_KEY=your_secret_key_here
 ```
 
 Для тестов можно указать SQLite:
 
-```env
+```
 DATABASE_URL=sqlite+aiosqlite:///./test.db
 ```
 
@@ -152,7 +151,7 @@ alembic upgrade head
 
 ## Запуск приложения
 
-Локальный запуск через `uvicorn`:
+#### Локальный запуск через `uvicorn`:
 
 ```bash
 uvicorn app.main:fastapi_app --reload --port 8001
@@ -166,12 +165,21 @@ uvicorn app.main:fastapi_app --reload --port 8001
 - Мини-панель (Jinja2):  
   - `http://localhost:8001/`
 
-Если перед фронтом стоит прокси на `localhost:3000`, ссылки в шаблонах можно настроить, например, на:
+### Запуск через Docker (FastAPI + PostgreSQL)
 
-```html
-<a href="http://localhost:3000/docs" target="_blank">Swagger UI</a>
-<a href="http://localhost:3000/redoc" target="_blank">ReDoc</a>
-```
+Для удобного запуска можно использовать Docker Compose: один контейнер с приложением и один с PostgreSQL.
+
+Запуск
+```bash
+docker compose up --build
+````
+После старта:
+
+Мини‑панель (Jinja2): http://localhost:3001/
+
+Swagger UI: http://localhost:3001/docs
+
+ReDoc: http://localhost:3001/redoc
 
 ---
 
