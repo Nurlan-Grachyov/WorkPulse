@@ -2,61 +2,13 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>WorkPulse Мини‑панель</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .form {
-            background: white;
-            margin: 20px 0;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h3 { color: #333; margin-top: 0; }
-        input, button, textarea, select {
-            padding: 8px;
-            margin: 4px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 280px;
-            box-sizing: border-box;
-        }
-        textarea { height: 60px; resize: vertical; }
-        button {
-            background: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        button:hover { background: #218838; }
-        a {
-            color: #007cba;
-            text-decoration: none;
-            font-weight: bold;
-            padding: 8px 12px;
-            background: #e8f4fd;
-            border-radius: 4px;
-            display: inline-block;
-            margin: 5px 0;
-        }
-        a:hover { background: #d0e8ff; }
-        #status { margin-top: 5px; font-size: 14px; }
-        pre {
-            max-height: 250px;
-            overflow: auto;
-            background: #222;
-            color: #eee;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-        }
-    </style>
+    <title>WorkPulse – Вход</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
 </head>
 <body>
 
-<!-- РЕГИСТРАЦИЯ -->
+<div id="notification"></div>
+
 <div class="form">
     <h3>📝 Регистрация</h3>
     <input id="reg_email" placeholder="email">
@@ -66,7 +18,6 @@
     <button type="button" onclick="registerUser()">✉ Зарегистрировать</button>
 </div>
 
-<!-- ЛОГИН -->
 <div class="form">
     <h3>🔐 Авторизация</h3>
     <input id="login_username" value="admin@example.com" placeholder="email или username">
@@ -77,392 +28,27 @@
     <div id="status"></div>
 </div>
 
-<!-- ПОЛЬЗОВАТЕЛИ -->
 <div class="form">
-    <h3>👥 Пользователи</h3>
-    <button type="button" onclick="loadUsers()">📋 Загрузить список пользователей</button>
-    <pre id="users_output"></pre>
-</div>
-
-<!-- КОМАНДЫ -->
-<div class="form">
-    <h3>🏢 Команды</h3>
-    <input id="team_title" placeholder="Название команды (TeamCreate.title_team)">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/users">Пользователи</a>
+        <a href="/teams">Команды</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+        <a href="/calendar">Календарь</a>
+    </div>
     <br>
-    <button type="button" onclick="createTeam()">➕ Создать команду</button>
-    <pre id="team_output"></pre>
-
-    <h4>Пользователи команды по slug</h4>
-    <input id="team_slug_users" placeholder="slug команды">
-    <br>
-    <button type="button" onclick="loadTeamUsers()">Загрузить пользователей команды</button>
-    <pre id="team_users_output"></pre>
-
-    <h4>Добавить пользователя в команду</h4>
-    <input id="add_team_slug" placeholder="slug команды">
-    <br>
-    <input id="add_user_email" placeholder="email пользователя">
-    <br>
-    <select id="add_user_role">
-        <option value="user">USER</option>
-        <option value="manager">MANAGER</option>
-    </select>
-    <br>
-    <button type="button" onclick="addUserToTeam()">Добавить в команду</button>
-    <pre id="add_team_user_output"></pre>
-</div>
-
-<!-- ЗАДАЧИ -->
-<div class="form">
-    <h3>✅ Создать задачу (MANAGER)</h3>
-    <input id="task_title" placeholder="TaskCreate.title">
-    <br>
-    <textarea id="task_description" placeholder="TaskCreate.description"></textarea>
-    <br>
-    <input id="task_assignee_email" placeholder="TaskCreate.assignee_email">
-    <br>
-    <input id="task_deadline" placeholder="TaskCreate.deadline (YYYY-MM-DD)">
-    <br>
-    <button type="button" onclick="createTask()">➕ Создать задачу</button>
-    <pre id="task_output"></pre>
-
-    <h4>Получить задачу по slug</h4>
-    <input id="get_task_slug" placeholder="/tasks/{slug}">
-    <br>
-    <button type="button" onclick="loadTask()">Загрузить задачу</button>
-    <pre id="get_task_output"></pre>
-</div>
-
-<!-- ОЦЕНКИ -->
-<div class="form">
-    <h3>⭐ Оценить задачу (MANAGER)</h3>
-    <input id="eval_task_id" placeholder="EvaluationCreate.task_id (int)">
-    <br>
-    <input id="eval_score" placeholder="EvaluationCreate.evaluation (1–5)">
-    <br>
-    <textarea id="eval_comment" placeholder="EvaluationCreate.comment (если есть)"></textarea>
-    <br>
-    <button type="button" onclick="evaluateTask()">Оценить</button>
-    <pre id="eval_output"></pre>
-
-    <h4>Сводка оценок</h4>
-    <button type="button" onclick="loadEvaluations()">Получить оценки</button>
-    <pre id="evaluations_output"></pre>
-</div>
-
-<!-- КОММЕНТАРИИ -->
-<div class="form">
-    <h3>💬 Комментировать задачу</h3>
-    <input id="comment_task_id" placeholder="CommentCreate.task_id (int)">
-    <br>
-    <textarea id="comment_text" placeholder="CommentCreate.text"></textarea>
-    <br>
-    <button type="button" onclick="commentTask()">Добавить комментарий</button>
-    <pre id="comment_output"></pre>
-
-    <h4>Комментарии по задаче</h4>
-    <input id="comment_task_id_get" placeholder="task_id">
-    <br>
-    <button type="button" onclick="loadCommentsByTask()">Комментарии задачи</button>
-    <pre id="comments_task_output"></pre>
-</div>
-
-<!-- МИТИНГИ -->
-<div class="form">
-    <h3>📅 Создать митинг (MANAGER/ADMIN)</h3>
-    <input id="meeting_title" placeholder="MeetingCreate.title">
-    <br>
-    <input id="meeting_starts_at" placeholder="MeetingCreate.starts_at (YYYY-MM-DDTHH:MM)">
-    <br>
-    <textarea id="meeting_description" placeholder="MeetingCreate.description (если есть)"></textarea>
-    <br>
-    <button type="button" onclick="createMeeting()">➕ Создать митинг</button>
-    <pre id="meeting_output"></pre>
-
-    <h4>Получить митинг по id</h4>
-    <input id="get_meeting_id" placeholder="/meetings/{meeting_id}">
-    <br>
-    <button type="button" onclick="loadMeeting()">Загрузить митинг</button>
-    <pre id="get_meeting_output"></pre>
-</div>
-
-<!-- КАЛЕНДАРЬ -->
-<div class="form">
-    <h3>🗓️ Календарь митингов</h3>
-    <select id="calendar_period">
-        <option value="day">Сегодня</option>
-        <option value="month">Месяц</option>
-    </select>
-    <br>
-    <button type="button" onclick="loadCalendar()">Загрузить календарь</button>
-    <pre id="calendar_output"></pre>
+    <button type="button" onclick="logoutUser()">🚪 Выйти</button>
 </div>
 
 <div class="form">
     <h3>📚 Документация</h3>
-    <a href="http://127.0.0.1:8001/docs" target="_blank">📖 Swagger UI</a>
-    <a href="http://127.0.0.1:8001/redoc" target="_blank">📚 ReDoc</a>
+    <a href="http://localhost:3000/docs" target="_blank">📖 Swagger UI</a>
+    <a href="http://localhost:3000/redoc" target="_blank">📚 ReDoc</a>
 </div>
 
-<script>
-    const API_BASE = window.location.origin;
-    let accessToken = null;
-
-    function setStatus(msg, ok=true) {
-        const el = document.getElementById('status');
-        el.textContent = msg;
-        el.style.color = ok ? 'green' : 'red';
-    }
-
-    // REGISTRATION (fastapi-users: POST /auth/register)
-    async function registerUser() {
-        const email = document.getElementById('reg_email').value;
-        const password = document.getElementById('reg_password').value;
-        if (!email || !password) {
-            setStatus('Введите email и пароль для регистрации', false);
-            return;
-        }
-        try {
-            const resp = await fetch(`${API_BASE}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
-            const data = await resp.json().catch(() => ({}));
-            console.log('register resp', resp.status, data);
-            if (!resp.ok) {
-                let msg = typeof data.detail === 'string'
-                    ? data.detail
-                    : JSON.stringify(data);
-                setStatus(`Ошибка регистрации: ${msg}`, false);
-                return;
-            }
-            setStatus('Пользователь зарегистрирован');
-        } catch (e) {
-            console.error(e);
-            setStatus('Сетевая ошибка при регистрации', false);
-        }
-    }
-
-    async function login() {
-        const username = document.getElementById('login_username').value;
-        const password = document.getElementById('login_password').value;
-
-        const formData = new URLSearchParams();
-        formData.append('username', username);
-        formData.append('password', password);
-
-        try {
-            const resp = await fetch(`${API_BASE}/auth/jwt/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString(),
-            });
-
-            let data = {};
-            try { data = await resp.json(); } catch (_) { data = {}; }
-            console.log('login resp', resp.status, data);
-
-            if (!resp.ok) {
-                let msg = '';
-                if (typeof data.detail === 'string') msg = data.detail;
-                else if (Array.isArray(data.detail))
-                    msg = data.detail.map(d => `${d.msg || ''} (${d.loc ? d.loc.join('.') : ''})`).join('; ');
-                else msg = JSON.stringify(data);
-                setStatus(`Ошибка логина: ${msg}`, false);
-                accessToken = null;
-                return;
-            }
-
-            accessToken = data.access_token;
-            if (!accessToken) {
-                setStatus('Нет access_token в ответе', false);
-                console.log('data:', data);
-                return;
-            }
-            setStatus('Успешный логин');
-        } catch (e) {
-            console.error(e);
-            setStatus('Сетевая ошибка', false);
-        }
-    }
-
-    async function authedFetch(path, options = {}, outputId = null, successMsg = null) {
-        if (!accessToken) {
-            setStatus('Сначала залогинься', false);
-            return null;
-        }
-        const headers = {
-            'Authorization': `Bearer ${accessToken}`,
-            ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-            ...(options.headers || {}),
-        };
-        try {
-            const resp = await fetch(`${API_BASE}${path}`, {
-                ...options,
-                headers,
-            });
-            const data = await resp.json().catch(() => ({}));
-            console.log(path, resp.status, data);
-
-            if (!resp.ok) {
-                let msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data);
-                setStatus(`Ошибка: ${msg}`, false);
-                if (outputId) document.getElementById(outputId).textContent = '';
-                return null;
-            }
-            if (successMsg) setStatus(successMsg);
-            if (outputId) document.getElementById(outputId).textContent = JSON.stringify(data, null, 2);
-            return data;
-        } catch (e) {
-            console.error(e);
-            setStatus('Сетевая ошибка', false);
-            if (outputId) document.getElementById(outputId).textContent = '';
-            return null;
-        }
-    }
-
-    // USERS
-    async function loadUsers() {
-        await authedFetch('/users/all_users/', { method: 'GET' }, 'users_output', 'Список пользователей загружен');
-    }
-
-    // TEAMS
-    async function createTeam() {
-        const title = document.getElementById('team_title').value;
-        if (!title) return setStatus('Введите название команды', false);
-        await authedFetch('/team/create_team', {
-            method: 'POST',
-            body: JSON.stringify({ title_team: title }),
-        }, 'team_output', 'Команда создана');
-        document.getElementById('team_title').value = '';
-    }
-
-    async function loadTeamUsers() {
-        const slug = document.getElementById('team_slug_users').value;
-        if (!slug) return setStatus('Введите slug команды', false);
-        await authedFetch(`/team/${slug}/users/`, { method: 'GET' }, 'team_users_output', 'Пользователи команды загружены');
-    }
-
-    async function addUserToTeam() {
-        const slug = document.getElementById('add_team_slug').value;
-        const email = document.getElementById('add_user_email').value;
-        const role = document.getElementById('add_user_role').value;
-        if (!slug || !email) return setStatus('Укажи slug команды и email', false);
-
-        const params = new URLSearchParams({ user_email: email, role });
-        await authedFetch(`/team/${slug}/users/add_user/?${params.toString()}`, {
-            method: 'POST',
-        }, 'add_team_user_output', 'Пользователь добавлен в команду');
-    }
-
-    // TASKS
-    async function createTask() {
-        const title = document.getElementById('task_title').value;
-        const description = document.getElementById('task_description').value;
-        const assigneeEmail = document.getElementById('task_assignee_email').value;
-        const deadline = document.getElementById('task_deadline').value;
-
-        if (!title || !assigneeEmail)
-            return setStatus('Нужны title и assignee_email', false);
-
-        const payload = {
-            title,
-            description,
-            assignee_email: assigneeEmail,
-            deadline: deadline || null,
-        };
-        await authedFetch('/tasks/create_task', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        }, 'task_output', 'Задача создана');
-    }
-
-    async function loadTask() {
-        const slug = document.getElementById('get_task_slug').value;
-        if (!slug) return setStatus('Укажи slug задачи', false);
-        await authedFetch(`/tasks/${slug}`, { method: 'GET' }, 'get_task_output', 'Задача загружена');
-    }
-
-    // EVALUATIONS
-    async function evaluateTask() {
-        const taskId = document.getElementById('eval_task_id').value;
-        const score = document.getElementById('eval_score').value;
-        const comment = document.getElementById('eval_comment').value;
-
-        if (!taskId || !score)
-            return setStatus('Нужны task_id и оценка', false);
-
-        const payload = {
-            task_id: Number(taskId),
-            evaluation: Number(score),
-            comment: comment || null,
-        };
-        await authedFetch('/evaluations/create_evaluation', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        }, 'eval_output', 'Оценка сохранена');
-    }
-
-    async function loadEvaluations() {
-        await authedFetch('/evaluations/get_evaluations', { method: 'GET' }, 'evaluations_output', 'Оценки загружены');
-    }
-
-    // COMMENTS
-    async function commentTask() {
-        const taskId = document.getElementById('comment_task_id').value;
-        const text = document.getElementById('comment_text').value;
-        if (!taskId || !text) return setStatus('Нужны task_id и текст комментария', false);
-
-        const payload = {
-            task_id: Number(taskId),
-            text: text,
-        };
-        await authedFetch('/comments/create_comment', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        }, 'comment_output', 'Комментарий добавлен');
-    }
-
-    async function loadCommentsByTask() {
-        const taskId = document.getElementById('comment_task_id_get').value;
-        if (!taskId) return setStatus('Нужен task_id', false);
-
-        await authedFetch(`/comments/tasks/${taskId}`, { method: 'GET' }, 'comments_task_output', 'Комментарии загружены');
-    }
-
-    // MEETINGS
-    async function createMeeting() {
-        const title = document.getElementById('meeting_title').value;
-        const startsAt = document.getElementById('meeting_starts_at').value;
-        const descr = document.getElementById('meeting_description').value;
-
-        if (!title || !startsAt)
-            return setStatus('Нужны title и starts_at', false);
-
-        const payload = {
-            title,
-            starts_at: startsAt,
-            description: descr || null,
-        };
-        await authedFetch('/meetings/create_meeting', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        }, 'meeting_output', 'Митинг создан');
-    }
-
-    async function loadMeeting() {
-        const id = document.getElementById('get_meeting_id').value;
-        if (!id) return setStatus('Нужен meeting_id', false);
-        await authedFetch(`/meetings/${id}`, { method: 'GET' }, 'get_meeting_output', 'Митинг загружен');
-    }
-
-    // CALENDAR
-    async function loadCalendar() {
-        const period = document.getElementById('calendar_period').value;
-        await authedFetch(`/calendar/?period=${period}`, { method: 'GET' }, 'calendar_output', 'Календарь загружен');
-    }
-</script>
-
+<script src="{{ url_for('static', path='app.js') }}"></script>
 </body>
 </html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Оценки</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/">Вход</a>
+        <a href="/users">Пользователи</a>
+        <a href="/teams">Команды</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+        <a href="/calendar">Календарь</a>
+    </div>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>⭐ Оценить задачу (MANAGER)</h3>
+    <input id="eval_task_id" placeholder="EvaluationCreate.task_id (int)">
+    <br>
+    <input id="eval_score" placeholder="EvaluationCreate.evaluation (1–5)">
+    <br>
+    <textarea id="eval_comment" placeholder="EvaluationCreate.comment (если есть)"></textarea>
+    <br>
+    <button type="button" onclick="evaluateTask()">Оценить</button>
+    <pre id="eval_output"></pre>
+
+    <h4>Сводка оценок</h4>
+    <button type="button" onclick="loadEvaluations()">Получить оценки</button>
+    <pre id="evaluations_output"></pre>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>

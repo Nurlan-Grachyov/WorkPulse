@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Календарь</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/">Вход</a>
+        <a href="/users">Пользователи</a>
+        <a href="/teams">Команды</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+    </div>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>🗓️ Календарь митингов</h3>
+    <select id="calendar_period">
+        <option value="day">Сегодня</option>
+        <option value="month">Месяц</option>
+    </select>
+    <br>
+    <button type="button" onclick="loadCalendar()">Загрузить календарь</button>
+    <pre id="calendar_output"></pre>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>

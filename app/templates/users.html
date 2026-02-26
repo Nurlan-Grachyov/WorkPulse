@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Пользователи</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/">Вход</a>
+        <a href="/teams">Команды</a>
+        <a href="/tasks">Задачи</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+        <a href="/calendar">Календарь</a>
+    </div>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>👥 Пользователи</h3>
+    <button type="button" onclick="loadUsers()">📋 Загрузить список пользователей</button>
+    <pre id="users_output"></pre>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>

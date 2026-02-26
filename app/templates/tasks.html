@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WorkPulse – Задачи</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+
+<div id="notification"></div>
+
+<div class="form">
+    <h3>Навигация</h3>
+    <div class="nav">
+        <a href="/">Вход</a>
+        <a href="/users">Пользователи</a>
+        <a href="/teams">Команды</a>
+        <a href="/evaluations">Оценки</a>
+        <a href="/comments">Комментарии</a>
+        <a href="/meetings">Митинги</a>
+        <a href="/calendar">Календарь</a>
+    </div>
+    <div id="status"></div>
+</div>
+
+<div class="form">
+    <h3>✅ Создать задачу (MANAGER)</h3>
+    <input id="task_title" placeholder="TaskCreate.title">
+    <br>
+    <textarea id="task_description" placeholder="TaskCreate.description"></textarea>
+    <br>
+    <input id="task_assignee_email" placeholder="TaskCreate.assignee_email">
+    <br>
+    <input id="task_deadline" placeholder="TaskCreate.deadline (YYYY-MM-DD)">
+    <br>
+    <button type="button" onclick="createTask()">➕ Создать задачу</button>
+    <pre id="task_output"></pre>
+
+    <h4>Получить задачу по slug</h4>
+    <input id="get_task_slug" placeholder="/tasks/{slug}">
+    <br>
+    <button type="button" onclick="loadTask()">Загрузить задачу</button>
+    <pre id="get_task_output"></pre>
+</div>
+
+<script src="{{ url_for('static', path='app.js') }}"></script>
+</body>
+</html>
