@@ -120,20 +120,8 @@ git clone <url-репозитория>
 cd <папка-проекта>
 ```
 
-### Создание и активация виртуального окружения
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-```
 
 ### Установка зависимостей
-
-```bash
-pip install -r requirements.txt
-```
-
-или через Poetry:
 
 ```bash
 poetry install
@@ -237,9 +225,7 @@ URL админки задаётся в `admin`‑модуле (например,
 ## Тестирование
 
 - БД для тестов: SQLite  
-- Рекомендуется использовать `pytest` + `httpx` для тестирования API  
-- Для интеграционных тестов поднимать отдельный тестовый `FastAPI`‑app и миграции в SQLite
-
+- Рекомендуется использовать `pytest` для тестирования API
 ---
 
 ## Дальнейшее развитие
