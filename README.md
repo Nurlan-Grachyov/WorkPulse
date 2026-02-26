@@ -86,11 +86,12 @@ app/
   models/              # SQLAlchemy-модели (User, Team, Task, Meeting, Evaluation, Comment)
   schemas/             # Pydantic-схемы
   routers/             # роутеры по доменам: user, team, task, meeting, comment, evaluation, calendar
-  auth/                # конфигурация fastapi-users, JWT
+  tests/               # тестирование
+  auth                 # конфигурация fastapi-users, JWT
   templates/           # Jinja2-шаблоны (index, users, teams, tasks, ...)
   static/              # styles.css, app.js
-  admin/               # настройка sqladmin
-alembic/               # миграции
+  admin                # настройка sqladmin
+  migrations/          # миграции
 alembic.ini
 ```
 
