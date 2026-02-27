@@ -176,11 +176,11 @@ docker compose up --build
 ````
 После старта:
 
-Мини‑панель (Jinja2): http://localhost:3001/
+Мини‑панель (Jinja2): http://localhost:3000/
 
-Swagger UI: http://localhost:3001/docs
+Swagger UI: http://localhost:3000/docs
 
-ReDoc: http://localhost:3001/redoc
+ReDoc: http://localhost:3000/redoc
 
 ---
 
