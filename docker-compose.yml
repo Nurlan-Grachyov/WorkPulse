@@ -3,31 +3,39 @@ services:
     image: postgres:16-alpine
     container_name: workpulse-db
     environment:
-      POSTGRES_DB: workpulse
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 1856513
+      POSTGRES_DB: ${POSTGRES_DB:-workpulse}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-07052001}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-workpulse}"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   migrations:
     build: .
     container_name: workpulse-migrations
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
-    command: [ "alembic", "-c", "alembic.ini", "upgrade", "head" ]
+    command: ["alembic", "-c", "alembic.ini", "upgrade", "head"]
     restart: "no"
 
   web:
     build: .
     container_name: workpulse-web
     depends_on:
-      - db
-      - migrations
+      db:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     env_file:
       - .env
     ports:
