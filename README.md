@@ -81,36 +81,64 @@ WorkPulse — упрощённая система управления кома�
 
 ```text
 src/
-  application/
-    main.py              # точка входа, создание FastAPI-приложения
-    schemas/             # Pydantic-схемы
-    routers/             # роутеры по доменам: user, team, task, meeting, comment, evaluation, calendar
-    services/
-      users.py      # RegisterUser, ChangePassword и т.п.
-      tasks.py      # CompleteTask, AssignTask
-      teams.py
-    auth                 # конфигурация fastapi-users, JWT
-    templates/           # Jinja2-шаблоны (index, users, teams, tasks, ...)
-    static/              # styles.css, app.js
-    admin                # настройка sqladmin
-    migrations/          # миграции
-  infrastructure/
+  application/                          # Внешний слой: HTTP‑API, схемы, use‑cases, UI
+    main.py                             # Точка входа, создание и конфигурация FastAPI-приложения
+    schemas/                            # Pydantic-схемы (DTO) для запросов/ответов API
+    routers/                            # HTTP-роутеры по доменам (endpoints)
+      users.py                          # Ручки /users, /profile и т.п.
+      teams.py                          # Ручки /teams (создание, список, управление)
+      tasks.py                          # Ручки /tasks (CRUD задач)
+      meetings.py                       # Ручки /meetings
+      comments.py                       # Ручки /comments
+      evaluations.py                    # Ручки /evaluations
+      calendar.py                       # Ручки /calendar
+    services/                           # Application services / use cases / оркестраторы
+      users.py                          # Сценарии по пользователям
+      tasks.py                          # Сценарии по задачам
+      teams.py                          # Сценарии по командам
+      comments.py                       # Сценарии по комментариям
+      evaluations.py                    # Сценарии по оценкам
+      meetings.py                       # Сценарии по встречам
+    auth/                               # Интеграция fastapi-users, JWT, зависимости current_user
+    templates/                          # Jinja2-шаблоны (HTML-страницы)
+    static/                             # Статические файлы (CSS, JS, изображения)
+    admin/                              # Конфигурация и view для sqladmin-панели
+    migrations/                         # Alembic-миграции БД
+
+  infrastructure/                       # Технический слой: БД, реализации репозиториев, внешние клиенты
     comments/
-      repositories.py
+      repositories.py                   # Реализация доменных CommentRepository (доступ к БД)
     evaluations/
+      repositories.py                   # Реализация репозиториев для оценок
     meetings/
+      repositories.py                   # Реализация репозиториев для встреч
     tasks/
+      repositories.py                   # Реализация TaskRepository (SQLAlchemy и др.)
     teams/
+      repositories.py                   # Реализация TeamRepository
     users/
+      repositories.py                   # Реализация UserRepository
     db/
-      database.py          # подключение к БД и session
-      models/              # SQLAlchemy-модели (User, Team, Task, Meeting, Evaluation, Comment)
-  domain/
+      database.py                       # Создание engine, session, зависимости get_async_session
+      models/                           # SQLAlchemy-модели (структура таблиц)
+        db_user.py                      # ORM-модель пользователя
+        db_team.py                      # ORM-модель команды
+        db_task.py                      # ORM-модель задачи
+        db_meeting.py                   # ORM-модель встречи
+        db_evaluation.py                # ORM-модель оценки
+        db_comment.py                   # ORM-модель комментария
+
+  domain/                               # Бизнес-ядро: сущности, абстракции репозиториев, доменные сервисы
     comments/
-      repositories.py
-      services.py
-  tests/               # тестирование
-alembic.ini
+      entities.py                       # Доменные сущности комментариев (если нужны)
+      repositories.py                   # Абстракция CommentRepository (интерфейсы, Protocol)
+      services.py                       # Чистая бизнес-логика по комментариям
+    # (аналогично планируется users/, tasks/, teams/, meetings/, evaluations/)
+
+  tests/                                # Тесты (unit, integration, e2e)
+  
+alembic.ini                             # Глобальная конфигурация Alembic
+
 ```
 
 Главная страница (`/`) — упрощённый фронтенд (Jinja2 + чистый JS), который позволяет:
