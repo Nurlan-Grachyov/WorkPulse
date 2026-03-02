@@ -80,18 +80,36 @@ WorkPulse — упрощённая система управления кома�
 Основные директории:
 
 ```text
-app/
-  main.py              # точка входа, создание FastAPI-приложения
-  database.py          # подключение к БД и session
-  models/              # SQLAlchemy-модели (User, Team, Task, Meeting, Evaluation, Comment)
-  schemas/             # Pydantic-схемы
-  routers/             # роутеры по доменам: user, team, task, meeting, comment, evaluation, calendar
+src/
+  application/
+    main.py              # точка входа, создание FastAPI-приложения
+    schemas/             # Pydantic-схемы
+    routers/             # роутеры по доменам: user, team, task, meeting, comment, evaluation, calendar
+    services/
+      users.py      # RegisterUser, ChangePassword и т.п.
+      tasks.py      # CompleteTask, AssignTask
+      teams.py
+    auth                 # конфигурация fastapi-users, JWT
+    templates/           # Jinja2-шаблоны (index, users, teams, tasks, ...)
+    static/              # styles.css, app.js
+    admin                # настройка sqladmin
+    migrations/          # миграции
+  infrastructure/
+    comments/
+      repositories.py
+    evaluations/
+    meetings/
+    tasks/
+    teams/
+    users/
+    db/
+      database.py          # подключение к БД и session
+      models/              # SQLAlchemy-модели (User, Team, Task, Meeting, Evaluation, Comment)
+  domain/
+    comments/
+      repositories.py
+      services.py
   tests/               # тестирование
-  auth                 # конфигурация fastapi-users, JWT
-  templates/           # Jinja2-шаблоны (index, users, teams, tasks, ...)
-  static/              # styles.css, app.js
-  admin                # настройка sqladmin
-  migrations/          # миграции
 alembic.ini
 ```
 
@@ -155,7 +173,7 @@ alembic upgrade head
 #### Локальный запуск через `uvicorn`:
 
 ```bash
-uvicorn app.main:fastapi_app --reload --port 8001
+uvicorn application.main:fastapi_app --reload --port 8001
 ```
 
 После старта:

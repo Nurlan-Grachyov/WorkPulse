@@ -2,11 +2,14 @@
 name = "workpulse"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Nurlan",email = "nurlan.grachyov@mail.ru"}
-]
-readme = "README.md"
+authors = [{ name = "Nurlan", email = "nurlan.grachyov@mail.ru" }]
 requires-python = ">=3.13"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = [
     "flake8 (>=7.3.0,<8.0.0)",
     "isort (>=7.0.0,<8.0.0)",
@@ -33,10 +36,9 @@ dependencies = [
     "argon2-cffi (>=25.1.0,<26.0.0)",
 ]
 
-
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
 
 [tool.isort]
 profile = "black"
