@@ -20,7 +20,7 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    assignee_id: Mapped[Integer] = mapped_column(ForeignKey("users.id"), nullable=False)
+    assignee_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     description: Mapped[str] = mapped_column(String(1000), nullable=True)
