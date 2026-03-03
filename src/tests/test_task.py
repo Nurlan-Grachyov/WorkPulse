@@ -1,11 +1,10 @@
 from datetime import datetime
 
 import pytest
-from sqlalchemy import select
-
 from app.models.db_task import Status, Task
 from app.routers.task import create_task, delete_task, get_task, update_task
 from app.schemas.scheme_task import TaskCreate, TaskUpdate
+from sqlalchemy import select
 
 
 @pytest.mark.asyncio

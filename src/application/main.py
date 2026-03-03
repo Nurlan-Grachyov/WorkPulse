@@ -17,16 +17,21 @@ import src.infrastructure.db.models.db_team  # noqa:  F401
 from src.application import admin  # noqa:  F401
 from src.application.admin import init_admin
 from src.application.auth import auth_backend, fastapi_users, hash_password
+from src.application.routers.router_calendar import calendar_router
+from src.application.routers.router_comment import comment_router
+from src.application.routers.router_evaluation import evaluation_router
+from src.application.routers.router_meeting import meeting_router
+from src.application.routers.router_task import task_router
+from src.application.routers.router_team import team_router
+from src.application.routers.router_user import user_router
+from src.application.schemas.scheme_user import (
+    RoleCompany,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from src.infrastructure.db.database import async_session
 from src.infrastructure.db.models.db_user import User
-from src.application.routers.calendar import calendar_router
-from src.application.routers.comment import comment_router
-from src.application.routers.evaluation import evaluation_router
-from src.application.routers.meeting import meeting_router
-from src.application.routers.task import task_router
-from src.application.routers.team import team_router
-from src.application.routers.user import user_router
-from src.application.schemas.scheme_user import RoleCompany, UserCreate, UserRead, UserUpdate
 
 
 @asynccontextmanager

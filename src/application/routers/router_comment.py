@@ -3,11 +3,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.auth import current_active_user
+from src.application.schemas.scheme_comment import (
+    CommentCreate,
+    CommentGet,
+    CommentUpdate,
+)
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_comment import Comment
 from src.infrastructure.db.models.db_task import Task
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_comment import CommentCreate, CommentGet, CommentUpdate
 
 comment_router = APIRouter(prefix="/comments", tags=["comments"])
 

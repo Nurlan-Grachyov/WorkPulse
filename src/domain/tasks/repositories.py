@@ -1,4 +1,5 @@
-from typing import Protocol, Optional, Sequence
+from typing import Optional, Protocol, Sequence
+
 from .entities import Task
 
 

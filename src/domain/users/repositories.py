@@ -1,0 +1,13 @@
+from typing import Protocol
+
+from src.domain.users.entities import User
+
+
+class UserRepository(Protocol):
+    async def get_users(self) -> list[User]: ...
+
+    async def get_user(self, email: str) -> User | None: ...
+
+    async def update_user(self, user: User) -> User: ...
+
+    async def delete_user(self, user: User) -> None: ...

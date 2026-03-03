@@ -4,13 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from src.application.auth import current_active_user
+from src.application.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
+from src.application.schemas.scheme_user import RoleCompany, RoleTeam
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_evaluation import Evaluation
 from src.infrastructure.db.models.db_task import Task
-from src.infrastructure.db.models.db_team import TeamUser, Team
+from src.infrastructure.db.models.db_team import Team, TeamUser
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
-from src.application.schemas.scheme_user import RoleTeam, RoleCompany
 
 evaluation_router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 

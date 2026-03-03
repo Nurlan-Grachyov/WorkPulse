@@ -3,8 +3,8 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Integer, String, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.infrastructure.db.database import Base
 from src.application.schemas.scheme_user import RoleTeam
+from src.infrastructure.db.database import Base
 
 
 class TeamUser(Base):  # Ассоциативная таблица

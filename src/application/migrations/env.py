@@ -3,12 +3,11 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from app.database import Base
 from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-from app.database import Base
 
 load_dotenv()
 # this is the Alembic Config object, which provides

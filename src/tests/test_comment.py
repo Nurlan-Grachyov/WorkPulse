@@ -1,7 +1,4 @@
 import pytest
-from sqlalchemy import select
-
-from src.infrastructure.db.models.db_comment import Comment
 from app.routers.comment import (
     create_comment,
     delete_comment,
@@ -10,6 +7,9 @@ from app.routers.comment import (
     update_comment,
 )
 from app.schemas.scheme_comment import CommentCreate, CommentUpdate
+from sqlalchemy import select
+
+from src.infrastructure.db.models.db_comment import Comment
 
 
 @pytest.mark.asyncio

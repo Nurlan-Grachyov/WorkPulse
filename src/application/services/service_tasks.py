@@ -1,11 +1,9 @@
-from typing import Sequence
-
+from src.application.schemas.scheme_task import TaskCreate, TaskUpdate
+from src.application.schemas.scheme_user import RoleCompany, RoleTeam
 from src.domain.tasks.entities import Task, TaskStatus
 from src.domain.tasks.repositories import TaskRepository
 from src.domain.tasks.services import update_task_fields
-from src.application.schemas.scheme_task import TaskCreate, TaskUpdate
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_user import RoleCompany, RoleTeam
 
 
 class TaskQueryService:
@@ -57,7 +55,9 @@ class TaskCommandService:
         )
         return await self._tasks.add(task)
 
-    async def update_task(self, slug: str, data: TaskUpdate, current_user: User) -> Task:
+    async def update_task(
+        self, slug: str, data: TaskUpdate, current_user: User
+    ) -> Task:
         if current_user.team_link.role is not RoleTeam.MANAGER:
             raise PermissionError("Manager access only")
 

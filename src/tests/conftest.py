@@ -1,20 +1,20 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import and_, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import joinedload
-
 from app.auth import hash_password
 from app.database import Base, get_async_session
 from app.main import fastapi_app
-from src.infrastructure.db.models.db_comment import Comment
 from app.models.db_evaluation import Evaluation
 from app.models.db_meeting import Meeting
 from app.models.db_task import Task
 from app.models.db_team import Team, TeamUser
 from app.models.db_user import User
 from app.schemas.scheme_user import RoleCompany, RoleTeam
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import joinedload
+
+from src.infrastructure.db.models.db_comment import Comment
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 engine = create_async_engine(TEST_DATABASE_URL)

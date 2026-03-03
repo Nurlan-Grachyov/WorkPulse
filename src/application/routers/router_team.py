@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.application.auth import current_superuser
+from src.application.schemas.scheme_team import TeamCreate, TeamGet
+from src.application.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_team import Team, TeamUser
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_team import TeamCreate, TeamGet
-from src.application.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
 
 team_router = APIRouter(tags=["teams"], prefix="/team")
 

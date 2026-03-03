@@ -5,11 +5,11 @@ from sqlalchemy.orm import joinedload
 from starlette import status
 
 from src.application.auth import current_active_user, has_manager_rights
+from src.application.schemas.scheme_meeting import MeetingCreate, MeetingGet
+from src.application.schemas.scheme_user import RoleCompany, RoleTeam
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_meeting import Meeting
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_meeting import MeetingGet, MeetingCreate
-from src.application.schemas.scheme_user import RoleCompany, RoleTeam
 
 meeting_router = APIRouter(prefix="/meetings", tags=["meetings"])
 

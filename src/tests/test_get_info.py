@@ -1,5 +1,4 @@
 import pytest
-
 from app.routers.calendar import get_info
 
 

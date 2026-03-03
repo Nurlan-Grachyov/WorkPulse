@@ -8,8 +8,8 @@ from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import String, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.infrastructure.db.database import Base
 from src.application.schemas.scheme_user import RoleCompany
+from src.infrastructure.db.database import Base
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):

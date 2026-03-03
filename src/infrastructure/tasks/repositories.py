@@ -3,12 +3,13 @@ from typing import Optional, Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.infrastructure.db.models.db_task import Task as TaskModel, Status as TaskStatusModel
 from src.domain.tasks.entities import Task, TaskStatus
 from src.domain.tasks.repositories import TaskRepository
+from src.infrastructure.db.models.db_task import Status as TaskStatusModel
+from src.infrastructure.db.models.db_task import Task as TaskModel
 
 
-def _model_to_entity(model: TaskModel) -> Task:
+def _task_model_to_entity(model: TaskModel) -> Task:
     return Task(
         id=model.id,
         assignee_id=model.assignee_id,
@@ -21,7 +22,7 @@ def _model_to_entity(model: TaskModel) -> Task:
     )
 
 
-def _entity_to_model(entity: Task, model: TaskModel | None = None) -> TaskModel:
+def _task_entity_to_model(entity: Task, model: TaskModel | None = None) -> TaskModel:
     if model is None:
         model = TaskModel()
     model.assignee_id = entity.assignee_id
@@ -46,18 +47,18 @@ class SqlAlchemyTaskRepository(TaskRepository):
             )
         )
         model = result.one_or_none()
-        return _model_to_entity(model) if model else None
+        return _task_model_to_entity(model) if model else None
 
     async def get_all(self) -> Sequence[Task]:
         result = await self._session.scalars(select(TaskModel))
-        return [_model_to_entity(m) for m in result.all()]
+        return [_task_model_to_entity(m) for m in result.all()]
 
     async def add(self, task: Task) -> Task:
-        model = _entity_to_model(task)
+        model = _task_entity_to_model(task)
         self._session.add(model)
         await self._session.commit()
         await self._session.refresh(model)
-        return _model_to_entity(model)
+        return _task_model_to_entity(model)
 
     async def update(self, task: Task) -> Task:
         # найдём текущую модель, обновим её и сохраним
@@ -65,10 +66,10 @@ class SqlAlchemyTaskRepository(TaskRepository):
             select(TaskModel).where(TaskModel.id == task.id)
         )
         model = result.one()
-        model = _entity_to_model(task, model=model)
+        model = _task_entity_to_model(task, model=model)
         await self._session.commit()
         await self._session.refresh(model)
-        return _model_to_entity(model)
+        return _task_model_to_entity(model)
 
     async def delete(self, task: Task) -> None:
         result = await self._session.scalars(

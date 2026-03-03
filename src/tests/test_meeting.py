@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import select
-
 from app.models.db_meeting import Meeting
 from app.routers.meeting import (
     add_user_to_meeting,
@@ -11,6 +9,7 @@ from app.routers.meeting import (
     get_meeting,
 )
 from app.schemas.scheme_meeting import MeetingCreate
+from sqlalchemy import select
 
 
 @pytest.mark.asyncio

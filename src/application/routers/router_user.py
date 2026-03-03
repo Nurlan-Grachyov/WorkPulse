@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from src.application.auth import current_active_user, current_superuser
+from src.application.schemas.scheme_user import UserRead, UserUpdate
+from src.application.services.service_users import UserService
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_user import RoleCompany, UserRead, UserUpdate
+from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 
 user_router = APIRouter(tags=["users"], prefix="/users")
+
+
+async def get_user_service(db: AsyncSession = Depends(get_async_session)):
+    user_repo = SqlAlchemyUserRepository(db)
+    return UserService(user_repo)
 
 
 @user_router.get(
@@ -19,11 +26,14 @@ user_router = APIRouter(tags=["users"], prefix="/users")
 )
 async def get_users(
     current_active_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+    user_service=Depends(get_user_service),
 ) -> list[UserRead]:
-    users = await db.scalars(select(User).where(User.is_active))
+    try:
+        users = await user_service.get_users()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
-    return [UserRead.model_validate(user) for user in users]
+    return users
 
 
 @user_router.get(
@@ -36,15 +46,14 @@ async def get_users(
 async def get_user(
     slug: str,
     current_active_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+    user_service=Depends(get_user_service),
 ) -> UserRead:
-    result = await db.scalars(select(User).where(User.slug == slug, User.is_active))
-    user = result.one_or_none()
+    user = await user_service.get_user(slug)
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return UserRead.model_validate(user)
+    return user
 
 
 @user_router.patch(
@@ -58,7 +67,7 @@ async def update_user(
     user_email: str,
     data_for_update_user: UserUpdate,
     superuser: User = Depends(current_superuser),
-    db: AsyncSession = Depends(get_async_session),
+    user_service=Depends(get_user_service),
 ) -> UserRead:
     """
     Updates user's global company role (User.role field).
@@ -72,23 +81,15 @@ async def update_user(
     - Updated UserRead schema with new role
     """
     # Find active user by slug
-    result = await db.scalars(
-        select(User).where(
-            User.email == user_email, User.is_active
-        )  # Only active users
-    )
-    user = result.one_or_none()
+    try:
+        user = await user_service.update_user(user_email, data_for_update_user)
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Update company role
-    user.role = data_for_update_user.role
-
-    await db.commit()
-    await db.refresh(user)
-
-    return UserRead.model_validate(user)
+    return user
 
 
 @user_router.delete(
@@ -98,9 +99,9 @@ async def update_user(
     description="Superadmin deletes any user (except superadmins).",
 )
 async def delete_user(
-    user_email: str,
+    slug: str,
     superuser: User = Depends(current_superuser),
-    db: AsyncSession = Depends(get_async_session),
+    user_service=Depends(get_user_service),
 ) -> None:
     """
     Superadmin deletes user by slug with safety checks.
@@ -114,19 +115,10 @@ async def delete_user(
     - 204 No Content on success
     """
     # Find active user by email
-    result = await db.scalars(
-        select(User).where(User.email == user_email, User.is_active)
-    )
-    user = result.one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Safety check: prevent superadmin deletion
-    if user.role == RoleCompany.ADMIN:
-        raise HTTPException(status_code=403, detail="Cannot delete superadmin accounts")
-
-    # Delete user from database
-    await db.delete(user)
-    await db.commit()
-    return None  # 204 No Content
+    try:
+        await user_service.delete_user(slug)
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )

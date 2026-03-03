@@ -1,5 +1,4 @@
 import pytest
-
 from app.routers.evaluation import create_evaluation, get_evaluations
 from app.schemas.scheme_evaluation import EvaluationCreate
 

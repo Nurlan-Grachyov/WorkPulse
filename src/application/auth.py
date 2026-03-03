@@ -15,9 +15,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from src.application.schemas.scheme_user import RoleTeam
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_user import RoleTeam
 
 load_dotenv()
 SECRET = os.getenv("SECRET_KEY")

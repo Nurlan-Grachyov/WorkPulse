@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from src.application.auth import verify_password
+from src.application.schemas.scheme_user import RoleCompany
 from src.infrastructure.db.database import engine
 from src.infrastructure.db.models.db_comment import Comment
 from src.infrastructure.db.models.db_evaluation import Evaluation
@@ -15,7 +16,6 @@ from src.infrastructure.db.models.db_meeting import Meeting
 from src.infrastructure.db.models.db_task import Task
 from src.infrastructure.db.models.db_team import Team
 from src.infrastructure.db.models.db_user import User
-from src.application.schemas.scheme_user import RoleCompany
 
 
 class MeetingAdmin(ModelView, model=Meeting):

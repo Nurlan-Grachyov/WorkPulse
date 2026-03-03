@@ -1,8 +1,4 @@
 import pytest
-from fastapi import HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.models.db_team import Team
 from app.models.db_user import User
 from app.routers.team import (
@@ -14,6 +10,9 @@ from app.routers.team import (
 )
 from app.schemas.scheme_team import TeamCreate
 from app.schemas.scheme_user import RoleTeam
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio
