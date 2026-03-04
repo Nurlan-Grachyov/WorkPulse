@@ -18,10 +18,11 @@ class TaskService:
             raise LookupError("task_not_found")
         return task
 
-    async def get_all_task(self) -> Sequence[Task]:
-        pass
+    async def get_all_task(self, current_user) -> Sequence[Task]:
+        tasks = await self._tasks.get_all_task(current_user.id)
+        return tasks
 
-    async def add_task(self, task: Task, user: User) -> Task:
+    async def add_task(self, task: dict, user: User) -> Task:
         author, assignee, existing_task = await self._tasks.add_task(task, user.id)
         self._policy.ensure_can_create(author)
         if existing_task is not None:
@@ -29,22 +30,22 @@ class TaskService:
 
         # сохраняем
         model = Task(
-            assignee_id=task.assignee_id,
-            title=task.title,
-            slug=task.slug,
-            description=task.description,
-            status=Status(task.status.value),
-            deadline=task.deadline,
+            assignee_id=task.get("assignee_id"),
+            title=task.get("title"),
+            slug=task.get("slug"),
+            description=task.get("description"),
+            status=Status(task.get("status")),
+            deadline=task.get("deadline"),
             team_id=author.team_link.team_id,
         )
         await self._tasks.save(model)
         return model
 
     async def update_task(
-            self,
-            task_slug: str,
-            data_for_update: dict,
-            current_user: User,
+        self,
+        task_slug: str,
+        data_for_update: dict,
+        current_user: User,
     ) -> Task:
         # 1. Готовим данные (автор + таска)
         author, task_model = await self._tasks.update_task(task_slug, current_user.id)
@@ -59,11 +60,10 @@ class TaskService:
         await self._tasks.save(updated_model)
         return updated_model
 
-    async def delete_task(self, task: Task, current_user: User) -> None:
-        author, task_model = await self._tasks.delete_task(task, current_user.id)
+    async def delete_task(self, slug_task: str, current_user: User) -> None:
+        author, task_model = await self._tasks.delete_task(slug_task, current_user.id)
 
         # 2. Проверяем права (можно ли этому автору менять задачи)
         self._policy.ensure_can_create(author)
 
-
-
+        await self._tasks.delete(task_model)

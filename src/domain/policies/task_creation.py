@@ -6,8 +6,7 @@ from src.infrastructure.db.models.db_user import User
 
 class TaskCreationPolicy(ABC):
     @abstractmethod
-    def ensure_can_create(self, user: User) -> None:
-        ...
+    def ensure_can_create(self, user: User) -> None: ...
 
 
 class ManagerOnlyTaskCreationPolicy(TaskCreationPolicy):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.auth import current_active_user
@@ -15,7 +15,7 @@ task_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 def get_task_services(
-        db: AsyncSession = Depends(get_async_session),
+    db: AsyncSession = Depends(get_async_session),
 ) -> tuple[TaskService, UserService]:
     task_repo = SqlAlchemyTaskRepository(db)
     policy = ManagerOnlyTaskCreationPolicy()
@@ -28,21 +28,32 @@ def get_task_services(
 
 
 @task_router.get(
-    "/{slug}",
+    "/{slug_task}",
     response_model=TaskGet,
     status_code=200,
 )
 async def get_task(
-        slug_task: str,
-        current_user: User = Depends(current_active_user),
-        services=Depends(get_task_services),
-):
+    slug_task: str,
+    current_user: User = Depends(current_active_user),
+    services=Depends(get_task_services),
+) -> TaskGet:
     task_service, user_service = services
     try:
-        task =  await task_service.get_task_by_slug_for_team(slug_task)
+        task = await task_service.get_task_by_slug_for_team(slug_task)
         return TaskGet.model_validate(task)
     except LookupError:
-        raise HTTPException(404, detail="User not found")
+        raise HTTPException(404, detail="Task not found")
+
+
+@task_router.get("/", response_model=list[TaskGet], status_code=200)
+async def get_all_task(
+    current_user: User = Depends(current_active_user),
+    services=Depends(get_task_services),
+) -> list[TaskGet]:
+    task_service, user_service = services
+
+    tasks = await task_service.get_all_task(current_user)
+    return [TaskGet.model_validate(task) for task in tasks]
 
 
 @task_router.post(
@@ -51,25 +62,26 @@ async def get_task(
     status_code=201,
 )
 async def create_task(
-        task: TaskCreate,
-        current_user: User = Depends(current_active_user),
-        services=Depends(get_task_services),
+    task: TaskCreate,
+    current_user: User = Depends(current_active_user),
+    services=Depends(get_task_services),
 ):
     task_service, user_service = services
-
-    created_task = await task_service.add_task(task, current_user)
+    data = task.model_dump(exclude_unset=True)
+    created_task = await task_service.add_task(data, current_user)
     return TaskGet.model_validate(created_task)
 
+
 @task_router.patch(
-    "/{slug}",
+    "/{slug_task}",
     response_model=TaskGet,
     status_code=200,
 )
 async def update_task(
-        slug_task: str,
-        task: TaskUpdate,
-        current_user: User = Depends(current_active_user),
-        services=Depends(get_task_services),
+    slug_task: str,
+    task: TaskUpdate,
+    current_user: User = Depends(current_active_user),
+    services=Depends(get_task_services),
 ):
     task_service, user_service = services
     update_data = task.model_dump(exclude_unset=True)
@@ -77,14 +89,15 @@ async def update_task(
     updated_task = await task_service.update_task(slug_task, update_data, current_user)
     return TaskGet.model_validate(updated_task)
 
+
 @task_router.delete(
-    "/{slug}",
+    "/{slug_task}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_task(
-        slug_task: str,
-        current_user: User = Depends(current_active_user),
-        services=Depends(get_task_services),
+    slug_task: str,
+    current_user: User = Depends(current_active_user),
+    services=Depends(get_task_services),
 ):
     task_service, user_service = services
 

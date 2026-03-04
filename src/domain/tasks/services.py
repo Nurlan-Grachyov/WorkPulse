@@ -1,4 +1,4 @@
-from .entities import Task
+from src.infrastructure.db.models.db_task import Task
 
 
 def update_task_fields(task: Task, fields: dict) -> Task:

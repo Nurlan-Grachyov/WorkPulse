@@ -1,7 +1,5 @@
-from src.application.schemas.scheme_user import UserUpdate
 from src.domain.users.repositories import UserRepository
 from src.domain.users.services import update_user_fields
-from src.infrastructure.users.repositories import user_model_to_entity
 
 
 class UserService:
