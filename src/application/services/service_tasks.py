@@ -1,83 +1,69 @@
-from src.application.schemas.scheme_task import TaskCreate, TaskUpdate
-from src.application.schemas.scheme_user import RoleCompany, RoleTeam
-from src.domain.tasks.entities import Task, TaskStatus
+from typing import Optional, Sequence
+
+from src.domain.policies.task_creation import TaskCreationPolicy
 from src.domain.tasks.repositories import TaskRepository
 from src.domain.tasks.services import update_task_fields
+from src.infrastructure.db.models.db_task import Status, Task
 from src.infrastructure.db.models.db_user import User
 
 
-class TaskQueryService:
-    def __init__(self, tasks: TaskRepository):
+class TaskService:
+    def __init__(self, tasks: TaskRepository, policy: TaskCreationPolicy):
         self._tasks = tasks
+        self._policy = policy
 
-    async def get_for_user(self, slug: str, current_user: User) -> Task | list[Task]:
-        if current_user.role is not RoleCompany.ADMIN:
-            team_id = current_user.team_link.team_id
-            task = await self._tasks.get_by_slug_for_team(slug, team_id)
-            if not task:
-                raise LookupError("task_not_found")
-            return task
-        else:
-            tasks = await self._tasks.get_all()
-            return list(tasks)
+    async def get_task_by_slug_for_team(self, slug: str) -> Optional[Task]:
+        task = await self._tasks.get_task_by_slug_for_team(slug)
+        if task is None:
+            raise LookupError("task_not_found")
+        return task
 
+    async def get_all_task(self) -> Sequence[Task]:
+        pass
 
-class TaskCommandService:
-    def __init__(self, tasks: TaskRepository, users_repo, team_role_getter):
-        self._tasks = tasks
-        self._users_repo = users_repo
-        self._team_role_getter = team_role_getter  # всё, что нужно, можно инжектить
+    async def add_task(self, task: Task, user: User) -> Task:
+        author, assignee, existing_task = await self._tasks.add_task(task, user.id)
+        self._policy.ensure_can_create(author)
+        if existing_task is not None:
+            raise ValueError("task_slug_exists")
 
-    async def create_task(self, data: TaskCreate, current_user: User) -> Task:
-        # проверки ролей и команд можно вынести сюда постепенно
-        if (
-            current_user.team_link is None
-            or current_user.team_link.role is not RoleTeam.MANAGER
-        ):
-            raise PermissionError("Manager access only")
-
-        team_id = current_user.team_link.team_id
-
-        # тут можно использовать users_repo, чтобы найти исполнителя по email
-        assignee = await self._users_repo.get_by_email(data.assignee_email)
-        if not assignee:
-            raise LookupError("assignee_not_found")
-
-        task = Task(
-            id=None,
-            assignee_id=assignee.id,
-            title=data.title,
-            slug="",  # можешь генерить slug на уровне infra/ORM как сейчас
-            description=data.description,
-            status=TaskStatus(data.status.value),
-            deadline=data.deadline,
-            team_id=team_id,
+        # сохраняем
+        model = Task(
+            assignee_id=task.assignee_id,
+            title=task.title,
+            slug=task.slug,
+            description=task.description,
+            status=Status(task.status.value),
+            deadline=task.deadline,
+            team_id=author.team_link.team_id,
         )
-        return await self._tasks.add(task)
+        await self._tasks.save(model)
+        return model
 
     async def update_task(
-        self, slug: str, data: TaskUpdate, current_user: User
+            self,
+            task_slug: str,
+            data_for_update: dict,
+            current_user: User,
     ) -> Task:
-        if current_user.team_link.role is not RoleTeam.MANAGER:
-            raise PermissionError("Manager access only")
+        # 1. Готовим данные (автор + таска)
+        author, task_model = await self._tasks.update_task(task_slug, current_user.id)
 
-        team_id = current_user.team_link.team_id
-        task = await self._tasks.get_by_slug_for_team(slug, team_id)
-        if not task:
-            raise LookupError("task_not_found")
+        # 2. Проверяем права (можно ли этому автору менять задачи)
+        self._policy.ensure_can_create(author)
 
-        update_data = data.model_dump(exclude_unset=True)
-        # маппинг полей Pydantic -> доменные имена при необходимости
-        task = update_task_fields(task, **update_data)
-        return await self._tasks.update(task)
+        # 3. Обновляем поля из dict (title, description, status, deadline, assignee_id...)
+        updated_model = update_task_fields(task_model, data_for_update)
 
-    async def delete_task(self, slug: str, current_user: User) -> None:
-        if current_user.team_link.role is not RoleTeam.MANAGER:
-            raise PermissionError("Manager access only")
+        # 4. Сохраняем
+        await self._tasks.save(updated_model)
+        return updated_model
 
-        team_id = current_user.team_link.team_id
-        task = await self._tasks.get_by_slug_for_team(slug, team_id)
-        if not task:
-            raise LookupError("task_not_found")
+    async def delete_task(self, task: Task, current_user: User) -> None:
+        author, task_model = await self._tasks.delete_task(task, current_user.id)
 
-        await self._tasks.delete(task)
+        # 2. Проверяем права (можно ли этому автору менять задачи)
+        self._policy.ensure_can_create(author)
+
+
+

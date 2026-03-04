@@ -1,28 +1,31 @@
 from typing import Optional, Sequence
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from src.domain.tasks.entities import Task, TaskStatus
+from src.domain.tasks.entities import Task
 from src.domain.tasks.repositories import TaskRepository
-from src.infrastructure.db.models.db_task import Status as TaskStatusModel
+from src.infrastructure.db.models.db_task import Status as TaskStatusModel, Status
 from src.infrastructure.db.models.db_task import Task as TaskModel
+from src.infrastructure.db.models.db_team import TeamUser
+from src.infrastructure.db.models.db_user import User
 
 
-def _task_model_to_entity(model: TaskModel) -> Task:
+def task_model_to_entity(model: TaskModel) -> Task:
     return Task(
-        id=model.id,
         assignee_id=model.assignee_id,
         title=model.title,
         slug=model.slug,
         description=model.description,
-        status=TaskStatus(model.status.value),
+        status=Status(model.status.value),
         deadline=model.deadline,
         team_id=model.team_id,
     )
 
 
-def _task_entity_to_model(entity: Task, model: TaskModel | None = None) -> TaskModel:
+def task_entity_to_model(entity: Task, model: TaskModel | None = None) -> TaskModel:
     if model is None:
         model = TaskModel()
     model.assignee_id = entity.assignee_id
@@ -39,42 +42,121 @@ class SqlAlchemyTaskRepository(TaskRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_by_slug_for_team(self, slug: str, team_id: int) -> Optional[Task]:
-        result = await self._session.scalars(
+    async def get_task_by_slug_for_team(self, slug: str) -> Optional[TaskModel]:
+        result_task = await self._session.scalars(select(TaskModel).where(TaskModel.slug == slug))
+        task = result_task.one_or_none()
+        if task is None:
+            raise LookupError("user_not_found")
+        return task
+
+    async def get_all_task(self) -> Sequence[Task]:
+        pass
+
+    async def add_task(self, task: Task, user_id: UUID) -> tuple[User | None, User | None, TaskModel | None]:
+        # 1. Автор с командой
+        author_result = await self._session.scalars(
+            select(User)
+            .options(joinedload(User.team_link))
+            .where(User.id == user_id)
+        )
+        author = author_result.one_or_none()
+        if author is None:
+            raise LookupError("author_not_found")
+
+        if author.team_link is None:
+            raise LookupError("author_no_team")
+
+        team_id = author.team_link.team_id
+
+        # 2. Исполнитель в той же команде
+        assignee_result = await self._session.scalars(
+            select(User).where(
+                User.id == task.assignee_id,
+                User.is_active,
+                User.team_link.has(TeamUser.team_id == team_id),
+            )
+        )
+        assignee = assignee_result.one_or_none()
+        if assignee is None:
+            raise LookupError("assignee_not_found")
+
+        # 3. Проверка уникальности slug в команде
+        task_result = await self._session.scalars(
             select(TaskModel).where(
-                TaskModel.slug == slug,
+                TaskModel.slug == task.slug,
                 TaskModel.team_id == team_id,
             )
         )
+        existing_task = task_result.one_or_none()
+
+        return author, assignee, existing_task
+
+    async def update_task(
+            self,
+            task_slug: str,
+            user_id: UUID,
+    ) -> tuple[User, TaskModel]:
+        # 1. Автор с командой
+        author_result = await self._session.scalars(
+            select(User)
+            .options(joinedload(User.team_link))
+            .where(User.id == user_id)
+        )
+        author = author_result.one_or_none()
+        if author is None:
+            raise LookupError("author_not_found")
+        if author.team_link is None:
+            raise LookupError("author_no_team")
+
+        team_id = author.team_link.team_id
+
+        # 2. Таска этой команды по slug
+        task_result = await self._session.scalars(
+            select(TaskModel).where(
+                TaskModel.slug == task_slug,
+                TaskModel.team_id == team_id,
+            )
+        )
+        task_model = task_result.one_or_none()
+        if task_model is None:
+            raise LookupError("task_not_found")
+
+        return author, task_model
+
+    async def delete_task(self, task: TaskModel, user_id: UUID) -> tuple[User, TaskModel]:
+        author_result = await self._session.scalars(
+            select(User)
+            .options(joinedload(User.team_link))
+            .where(User.id == user_id)
+        )
+        author = author_result.one_or_none()
+        if author is None:
+            raise LookupError("author_not_found")
+        if author.team_link is None:
+            raise LookupError("author_no_team")
+
+        team_id = author.team_link.team_id
+
+        # 2. Таска этой команды по slug
+        task_result = await self._session.scalars(
+            select(TaskModel).where(
+                TaskModel.slug == task.slug,
+                TaskModel.team_id == team_id,
+            )
+        )
+        task_model = task_result.one_or_none()
+        if task_model is None:
+            raise LookupError("task_not_found")
+
+        return author, task_model
+
+    async def save(self, task) -> None:
+        result = await self._session.scalars(
+            select(TaskModel).where(TaskModel.id == task.id)
+        )
         model = result.one_or_none()
-        return _task_model_to_entity(model) if model else None
-
-    async def get_all(self) -> Sequence[Task]:
-        result = await self._session.scalars(select(TaskModel))
-        return [_task_model_to_entity(m) for m in result.all()]
-
-    async def add(self, task: Task) -> Task:
-        model = _task_entity_to_model(task)
-        self._session.add(model)
+        if model is None:
+            raise LookupError("user_not_found")
+        model = task_entity_to_model(task, model=model)
         await self._session.commit()
         await self._session.refresh(model)
-        return _task_model_to_entity(model)
-
-    async def update(self, task: Task) -> Task:
-        # найдём текущую модель, обновим её и сохраним
-        result = await self._session.scalars(
-            select(TaskModel).where(TaskModel.id == task.id)
-        )
-        model = result.one()
-        model = _task_entity_to_model(task, model=model)
-        await self._session.commit()
-        await self._session.refresh(model)
-        return _task_model_to_entity(model)
-
-    async def delete(self, task: Task) -> None:
-        result = await self._session.scalars(
-            select(TaskModel).where(TaskModel.id == task.id)
-        )
-        model = result.one()
-        await self._session.delete(model)
-        await self._session.commit()

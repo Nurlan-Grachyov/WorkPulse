@@ -8,7 +8,7 @@ from src.infrastructure.db.models.db_task import Status
 
 
 class TaskCreate(BaseModel):
-    assignee_email: str
+    assignee_id: Optional[str] = None
     title: str
     description: Optional[str] = None
     status: Optional[Status] = Status.OPEN

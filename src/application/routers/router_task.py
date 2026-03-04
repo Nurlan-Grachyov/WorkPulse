@@ -1,47 +1,48 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.auth import current_active_user
 from src.application.schemas.scheme_task import TaskCreate, TaskGet, TaskUpdate
-from src.application.services.service_tasks import TaskCommandService, TaskQueryService
+from src.application.services.service_tasks import TaskService
+from src.application.services.service_users import UserService
+from src.domain.policies.task_creation import ManagerOnlyTaskCreationPolicy
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.tasks.repositories import SqlAlchemyTaskRepository
+from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 
 task_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 def get_task_services(
-    db: AsyncSession = Depends(get_async_session),
-) -> tuple[TaskQueryService, TaskCommandService]:
+        db: AsyncSession = Depends(get_async_session),
+) -> tuple[TaskService, UserService]:
     task_repo = SqlAlchemyTaskRepository(db)
-    # users_repo и team_role_getter можно собрать аналогично из infrastructure
-    users_repo = ...
-    team_role_getter = ...
-    query_service = TaskQueryService(task_repo)
-    command_service = TaskCommandService(task_repo, users_repo, team_role_getter)
-    return query_service, command_service
+    policy = ManagerOnlyTaskCreationPolicy()
+
+    users_repo = SqlAlchemyUserRepository(db)
+    user_service = UserService(users_repo)
+
+    task_service = TaskService(task_repo, policy)
+    return task_service, user_service
 
 
 @task_router.get(
     "/{slug}",
-    response_model=TaskGet | list[TaskGet],
+    response_model=TaskGet,
     status_code=200,
 )
 async def get_task(
-    slug: str,
-    current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+        slug_task: str,
+        current_user: User = Depends(current_active_user),
+        services=Depends(get_task_services),
 ):
-    query_service, _ = services
+    task_service, user_service = services
     try:
-        result = await query_service.get_for_user(slug, current_user)
+        task =  await task_service.get_task_by_slug_for_team(slug_task)
+        return TaskGet.model_validate(task)
     except LookupError:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    if isinstance(result, list):
-        return [TaskGet.model_validate(t) for t in result]
-    return TaskGet.model_validate(result)
+        raise HTTPException(404, detail="User not found")
 
 
 @task_router.post(
@@ -50,20 +51,14 @@ async def get_task(
     status_code=201,
 )
 async def create_task(
-    task: TaskCreate,
-    current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+        task: TaskCreate,
+        current_user: User = Depends(current_active_user),
+        services=Depends(get_task_services),
 ):
-    _, command_service = services
-    try:
-        created = await command_service.create_task(task, current_user)
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except LookupError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    task_service, user_service = services
 
-    return TaskGet.model_validate(created)
-
+    created_task = await task_service.add_task(task, current_user)
+    return TaskGet.model_validate(created_task)
 
 @task_router.patch(
     "/{slug}",
@@ -71,35 +66,26 @@ async def create_task(
     status_code=200,
 )
 async def update_task(
-    slug: str,
-    task: TaskUpdate,
-    current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+        slug_task: str,
+        task: TaskUpdate,
+        current_user: User = Depends(current_active_user),
+        services=Depends(get_task_services),
 ):
-    _, command_service = services
-    try:
-        updated = await command_service.update_task(slug, task, current_user)
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except LookupError:
-        raise HTTPException(status_code=404, detail="Task not found")
+    task_service, user_service = services
+    update_data = task.model_dump(exclude_unset=True)
 
-    return TaskGet.model_validate(updated)
-
+    updated_task = await task_service.update_task(slug_task, update_data, current_user)
+    return TaskGet.model_validate(updated_task)
 
 @task_router.delete(
     "/{slug}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_task(
-    slug: str,
-    current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+        slug_task: str,
+        current_user: User = Depends(current_active_user),
+        services=Depends(get_task_services),
 ):
-    _, command_service = services
-    try:
-        await command_service.delete_task(slug, current_user)
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except LookupError:
-        raise HTTPException(status_code=404, detail="Task not found")
+    task_service, user_service = services
+
+    await task_service.delete_task(slug_task, current_user)

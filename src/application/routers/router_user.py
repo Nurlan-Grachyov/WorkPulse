@@ -82,6 +82,7 @@ async def update_user(
     """
     # Find active user by slug
     try:
+        data_for_update_user = data_for_update_user.model_dump(exclude_unset=True)
         user = await user_service.update_user(user_email, data_for_update_user)
     except LookupError:
         raise HTTPException(

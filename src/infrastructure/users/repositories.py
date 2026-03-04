@@ -34,13 +34,10 @@ class SqlAlchemyUserRepository:
         self._session = session
 
     async def get_users(self):
-        try:
-            users = await self._session.scalars(
-                select(UserModel).where(UserModel.is_active)
-            )
-            db_users = users.all()
-        except Exception as exc:
-            raise RuntimeError("DB error while fetching users") from exc
+        users = await self._session.scalars(
+            select(UserModel).where(UserModel.is_active)
+        )
+        db_users = users.all()
         return [user_model_to_entity(user) for user in db_users]
 
     async def get_user(self, slug: str):
@@ -48,13 +45,17 @@ class SqlAlchemyUserRepository:
             select(UserModel).where(UserModel.slug == slug)
         )
         db_user = user.one_or_none()
+        if db_user is None:
+            raise LookupError("user_not_found")
         return user_model_to_entity(db_user)
 
     async def update_user(self, user: User):
         result = await self._session.scalars(
             select(UserModel).where(UserModel.id == user.id)
         )
-        model = result.one()
+        model = result.one_or_none()
+        if model is None:
+            raise LookupError("user_not_found")
         model = user_entity_to_model(user, model=model)
         await self._session.commit()
         await self._session.refresh(model)
