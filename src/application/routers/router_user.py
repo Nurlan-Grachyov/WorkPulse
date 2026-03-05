@@ -41,14 +41,14 @@ async def get_users(
     response_model=UserRead,
     status_code=200,
     summary="Get user",
-    description="Get user with team and members info.. Everybody access.",
+    description="Get user with team and members info. Everybody access.",
 )
 async def get_user(
     slug: str,
     current_active_user: User = Depends(current_active_user),
     user_service=Depends(get_user_service),
 ) -> UserRead:
-    user = await user_service.get_user(slug)
+    user = await user_service.get_user(slug=slug)
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

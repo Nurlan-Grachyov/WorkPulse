@@ -22,16 +22,24 @@ class SqlAlchemyTaskRepository(TaskRepository):
             raise LookupError("task_not_found")
         return task
 
-    async def get_all_task(self, user_id) -> Sequence[Task]:
+    async def get_all_task_for_admin(self) -> Sequence[Task]:
+        result_task = await self._session.scalars(select(Task))
+        tasks = result_task.all()
+        return tasks
+
+    async def get_all_task_for_user(self, user_id) -> Sequence[Task]:
         result_user = await self._session.scalars(
             select(User).options(joinedload(User.team_link)).where(User.id == user_id)
         )
         user = result_user.one_or_none()
 
-        result_task = await self._session.scalars(
-            select(Task).where(Task.team_id == user.team_link.team_id)
-        )
-        tasks = result_task.all()
+        if user.team_link:
+            result_task = await self._session.scalars(
+                select(Task).where(Task.team_id == user.team_link.team_id)
+            )
+            tasks = result_task.all()
+        else:
+            return []
         return tasks
 
     async def add_task(
@@ -46,7 +54,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
             raise LookupError("author_not_found")
 
         if author.team_link is None:
-            raise LookupError("author_no_team")
+            raise PermissionError("author_no_team")
 
         team_id = author.team_link.team_id
 

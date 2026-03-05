@@ -1,6 +1,6 @@
 from typing import Optional, Sequence
 
-from src.domain.policies.task_creation import TaskCreationPolicy
+from src.domain.policies.task_permissions import RoleBasedTaskAccessPolicy
 from src.domain.tasks.repositories import TaskRepository
 from src.domain.tasks.services import update_task_fields
 from src.infrastructure.db.models.db_task import Status, Task
@@ -8,7 +8,7 @@ from src.infrastructure.db.models.db_user import User
 
 
 class TaskService:
-    def __init__(self, tasks: TaskRepository, policy: TaskCreationPolicy):
+    def __init__(self, tasks: TaskRepository, policy: RoleBasedTaskAccessPolicy):
         self._tasks = tasks
         self._policy = policy
 
@@ -19,13 +19,16 @@ class TaskService:
         return task
 
     async def get_all_task(self, current_user) -> Sequence[Task]:
-        tasks = await self._tasks.get_all_task(current_user.id)
+        if self._policy.ensure_get_all_tasks(current_user):
+            tasks = await self._tasks.get_all_task_for_admin()
+        else:
+            tasks = await self._tasks.get_all_task_for_user(current_user.id)
         return tasks
 
     async def add_task(self, task: dict, user: User) -> Task:
         author, assignee, existing_task = await self._tasks.add_task(task, user.id)
         self._policy.ensure_can_create(author)
-        if existing_task is not None:
+        if existing_task:
             raise ValueError("task_slug_exists")
 
         # сохраняем

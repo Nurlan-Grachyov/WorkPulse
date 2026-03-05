@@ -5,7 +5,7 @@ from src.application.auth import current_active_user
 from src.application.schemas.scheme_task import TaskCreate, TaskGet, TaskUpdate
 from src.application.services.service_tasks import TaskService
 from src.application.services.service_users import UserService
-from src.domain.policies.task_creation import ManagerOnlyTaskCreationPolicy
+from src.domain.policies.task_permissions import RoleBasedTaskAccessPolicy
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.tasks.repositories import SqlAlchemyTaskRepository
@@ -18,7 +18,7 @@ def get_task_services(
     db: AsyncSession = Depends(get_async_session),
 ) -> tuple[TaskService, UserService]:
     task_repo = SqlAlchemyTaskRepository(db)
-    policy = ManagerOnlyTaskCreationPolicy()
+    policy = RoleBasedTaskAccessPolicy()
 
     users_repo = SqlAlchemyUserRepository(db)
     user_service = UserService(users_repo)
@@ -67,9 +67,16 @@ async def create_task(
     services=Depends(get_task_services),
 ):
     task_service, user_service = services
-    data = task.model_dump(exclude_unset=True)
-    created_task = await task_service.add_task(data, current_user)
-    return TaskGet.model_validate(created_task)
+    try:
+        data = task.model_dump(exclude_unset=True)
+        created_task = await task_service.add_task(data, current_user)
+        return TaskGet.model_validate(created_task)
+    except PermissionError:
+        raise HTTPException(409, detail="You dont have enough rights")
+    except LookupError:
+        raise HTTPException(404, detail="Assignee is not found")
+    except ValueError:
+        raise HTTPException(409, detail="Task`s slug already exists")
 
 
 @task_router.patch(
@@ -84,10 +91,15 @@ async def update_task(
     services=Depends(get_task_services),
 ):
     task_service, user_service = services
-    update_data = task.model_dump(exclude_unset=True)
+    try:
+        update_data = task.model_dump(exclude_unset=True)
 
-    updated_task = await task_service.update_task(slug_task, update_data, current_user)
-    return TaskGet.model_validate(updated_task)
+        updated_task = await task_service.update_task(
+            slug_task, update_data, current_user
+        )
+        return TaskGet.model_validate(updated_task)
+    except LookupError:
+        raise HTTPException(409, detail="You dont have enough rights")
 
 
 @task_router.delete(
@@ -100,5 +112,7 @@ async def delete_task(
     services=Depends(get_task_services),
 ):
     task_service, user_service = services
-
-    await task_service.delete_task(slug_task, current_user)
+    try:
+        await task_service.delete_task(slug_task, current_user)
+    except LookupError:
+        raise HTTPException(409, detail="You dont have enough rights")

@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from src.domain.users.entities import User
 from src.infrastructure.db.models.db_user import User as UserModel
@@ -40,11 +41,42 @@ class SqlAlchemyUserRepository:
         db_users = users.all()
         return [user_model_to_entity(user) for user in db_users]
 
-    async def get_user(self, slug: str):
-        user = await self._session.scalars(
-            select(UserModel).where(UserModel.slug == slug)
-        )
-        db_user = user.one_or_none()
+    async def get_user(self, slug: str = None, email: str = None):
+        db_user = None
+
+        if slug:
+            user = await self._session.scalars(
+                select(UserModel).where(UserModel.slug == slug)
+            )
+            db_user = user.one_or_none()
+        elif email:
+            user = await self._session.scalars(
+                select(UserModel).where(UserModel.email == email)
+            )
+            db_user = user.one_or_none()
+
+        if db_user is None:
+            raise LookupError("user_not_found")
+        return user_model_to_entity(db_user)
+
+    async def get_user_with_team_link(self, slug: str = None, email: str = None):
+        db_user = None
+
+        if slug:
+            user = await self._session.scalars(
+                select(UserModel)
+                .options(joinedload(UserModel.team_link))
+                .where(UserModel.slug == slug)
+            )
+            db_user = user.one_or_none()
+        elif email:
+            user = await self._session.scalars(
+                select(UserModel)
+                .options(joinedload(UserModel.team_link))
+                .where(UserModel.slug == slug)
+            )
+            db_user = user.one_or_none()
+
         if db_user is None:
             raise LookupError("user_not_found")
         return user_model_to_entity(db_user)

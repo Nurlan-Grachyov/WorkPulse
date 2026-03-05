@@ -1,18 +1,28 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from starlette import status
 
 from src.application.auth import current_superuser
+from src.application.routers.router_user import get_user_service
 from src.application.schemas.scheme_team import TeamCreate, TeamGet
 from src.application.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
+from src.application.services.service_teams import TeamService
 from src.infrastructure.db.database import get_async_session
-from src.infrastructure.db.models.db_team import Team, TeamUser
+from src.infrastructure.db.models.db_team import TeamUser
 from src.infrastructure.db.models.db_user import User
+from src.infrastructure.teams.repositories import SqlAlchemyTeamRepository
 
 team_router = APIRouter(tags=["teams"], prefix="/team")
+
+
+def get_team_service(db: AsyncSession = Depends(get_async_session)) -> TeamService:
+    team_repo = SqlAlchemyTeamRepository(db)
+    team_service = TeamService(team_repo)
+
+    return team_service
 
 
 @team_router.post(
@@ -23,9 +33,9 @@ team_router = APIRouter(tags=["teams"], prefix="/team")
     description="Creates a team with unique title. Superadmin access only.",
 )
 async def create_team(
-    team_in: TeamCreate,
-    superuser: User = Depends(current_superuser),
-    db: AsyncSession = Depends(get_async_session),
+        team_in: TeamCreate,
+        superuser: User = Depends(current_superuser),
+        service=Depends(get_team_service),
 ) -> TeamGet:
     """
     Creates a new team in the system.
@@ -37,22 +47,17 @@ async def create_team(
     **Returns:**
     - Created team with generated slug
     """
-    # Check team title uniqueness
-    existing_team = await db.scalar(
-        select(Team).where(Team.title == team_in.title_team)
-    )
-    if existing_team:
-        raise HTTPException(
-            status_code=409, detail="Team with this title already exists"
-        )
-
-    # Create team (slug generated automatically)
-    new_team = Team(title=team_in.title_team)
-    db.add(new_team)
-    await db.commit()
-    await db.refresh(new_team)  # Refresh to get ID and slug
-
-    return TeamGet.model_validate(new_team)
+    try:
+        team = await service.create_team(team_in)
+        return TeamGet.model_validate(team)
+    except PermissionError:
+        raise HTTPException(403, detail="You dont have enough rights")
+    except LookupError:
+        raise HTTPException(404, detail="Assignee is not found")
+    except ValueError:
+        raise HTTPException(409, detail="Team already exists")
+    except SQLAlchemyError:
+        raise HTTPException(500, detail="Try later")
 
 
 @team_router.get(
@@ -62,9 +67,9 @@ async def create_team(
     description="Returns team users list with preloaded tasks and comments.",
 )
 async def get_users_of_team(
-    slug_team: str,
-    superuser: User = Depends(current_superuser),
-    db: AsyncSession = Depends(get_async_session),
+        slug_team: str,
+        superuser: User = Depends(current_superuser),
+        service=Depends(get_team_service),
 ) -> List[UserReadWithTeamRole]:
     """
     Retrieves all users of specific team.
@@ -74,19 +79,14 @@ async def get_users_of_team(
     - JOIN through TeamUser association table
     - Superadmin access only
     """
-    stmt = (
-        select(User)
-        .options(selectinload(User.team_link))
-        .join(User.team_link)
-        .join(TeamUser.team)
-        .where(Team.slug == slug_team)
-    )
-
-    users = (await db.scalars(stmt)).all()
-
-    return [
-        UserReadWithTeamRole.model_validate(user) for user in users
-    ]  # Return list of all users
+    try:
+        users = await service.get_users_of_team(slug_team)
+        return [UserReadWithTeamRole.model_validate(user) for user in users]
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found",
+        )
 
 
 @team_router.post(
@@ -96,12 +96,13 @@ async def get_users_of_team(
     description="Adds existing user to team with specified role.",
 )
 async def add_user_to_team(
-    slug_team: str,
-    user_email: str,
-    role: RoleTeam,
-    superuser: User = Depends(current_superuser),
-    db: AsyncSession = Depends(get_async_session),
-) -> dict:
+        slug_team: str,
+        user_email: str,
+        role: RoleTeam,
+        superuser: User = Depends(current_superuser),
+        user_service=Depends(get_user_service),
+        team_service=Depends(get_team_service),
+) -> TeamUser:
     """
     Adds user to team by creating TeamUser association record.
 
@@ -113,43 +114,17 @@ async def add_user_to_team(
     **Returns:**
     - Confirmation with association details
     """
-    # 1. Find user by email
-    result_user = await db.scalars(select(User).where(User.email == user_email))
-    user = result_user.one_or_none()
-    if not user:
+    try:
+        user = await user_service.get_user(slug=slug_team)
+    except LookupError:
         raise HTTPException(status_code=404, detail=f"User {user_email} not found")
-
-    # 2. Find team by slug
-    result_team = await db.scalars(select(Team).where(Team.slug == slug_team))
-    team = result_team.one_or_none()
-    if not team:
+    try:
+        new_team_user = await team_service.add_user_to_team(slug_team, user.id, role)
+        return new_team_user
+    except ValueError:
+        raise HTTPException(409, detail="The user already exists in the team")
+    except LookupError:
         raise HTTPException(status_code=404, detail=f"Team {slug_team} not found")
-
-    # 3. Check uniqueness (one user per team)
-    result_existing_link = await db.scalars(
-        select(TeamUser).where(
-            and_(TeamUser.team_id == team.id, TeamUser.user_id == user.id)
-        )
-    )
-    existing_link = result_existing_link.one_or_none()
-    if existing_link:
-        raise HTTPException(status_code=409, detail="User already in team")
-
-    # 4. Create association record
-    new_team_user = TeamUser(
-        team_id=team.id, user_id=user.id, role=role  # USER or MANAGER
-    )
-    db.add(new_team_user)
-    await db.commit()
-
-    return {
-        "message": "User added to team",
-        "team_user": {
-            "title_team": team.title,
-            "user_email": user.email,
-            "role": role.value,  # "user" or "manager"
-        },
-    }
 
 
 @team_router.patch(
@@ -159,12 +134,13 @@ async def add_user_to_team(
     description="Changes user role with 'single manager per team' business logic.",
 )
 async def change_role_user(
-    slug_team: str,
-    slug_user: str,
-    role_data: RoleTeam,
-    db: AsyncSession = Depends(get_async_session),
-    superuser: User = Depends(current_superuser),
-) -> dict:
+        slug_team: str,
+        slug_user: str,
+        role_data: RoleTeam,
+        user_service=Depends(get_user_service),
+        team_service=Depends(get_team_service),
+        superuser: User = Depends(current_superuser),
+) -> TeamUser:
     """
     Changes user role in team enforcing "one manager per team" business rule.
 
@@ -177,48 +153,33 @@ async def change_role_user(
     **Returns:**
     - Role change confirmation
     """
-    # 1. Validate user existence
-    user = await db.scalar(select(User).where(User.slug == slug_user))
-    if not user:
-        raise HTTPException(status_code=404, detail=f"User {slug_user} not found")
+    # Проверки пользователя
+    try:
+        user = await user_service.get_user(slug=slug_user)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="user_not_found")
 
-    # 2. Validate team existence
-    team = await db.scalar(select(Team).where(Team.slug == slug_team))
-    if not team:
-        raise HTTPException(status_code=404, detail=f"Team {slug_team} not found")
-
-    # 3. Validate TeamUser association exists
-    team_user = await db.scalar(
-        select(TeamUser).where(
-            and_(TeamUser.team_id == team.id, TeamUser.user_id == user.id)
+    # Основная логика с обработкой всех ошибок
+    try:
+        new_role = await team_service.change_role_user(
+            slug_team=slug_team, user=user, role_data=role_data
         )
-    )
-    if not team_user:
-        raise HTTPException(status_code=404, detail="User not in team")
-
-    # 4. 🎯 Business logic: enforce single MANAGER per team
-    if role_data == RoleTeam.MANAGER:
-        # Bulk downgrade other team managers (atomic operation!)
-        await db.execute(
-            update(TeamUser)
-            .where(
-                TeamUser.team_id == team.id,
-                TeamUser.role == RoleTeam.MANAGER,
-                TeamUser.user_id != user.id,  # Exclude new manager
-            )
-            .values(role=RoleTeam.USER)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=404, detail=str(exc)  # "user_not_found" или "team_not_found"
         )
+    except ValueError as exc:
+        if "integrity_error" in str(exc):
+            raise HTTPException(status_code=409, detail="integrity_violation")
+        raise HTTPException(status_code=400, detail="bad_request")
+    except RuntimeError as exc:
+        if "db_error" in str(exc):
+            raise HTTPException(status_code=500, detail="database_error")
+        raise HTTPException(status_code=500, detail="internal_error")
+    except Exception:
+        raise HTTPException(status_code=500, detail="unexpected_error")
 
-    # 5. Assign new role (USER or MANAGER)
-    team_user.role = role_data
-    await db.commit()
-
-    return {
-        "message": "Role updated successfully!",
-        "user_slug": slug_user,
-        "team_slug": slug_team,
-        "new_role": team_user.role.value,  # "user" or "manager"
-    }
+    return new_role
 
 
 @team_router.delete(
@@ -228,15 +189,17 @@ async def change_role_user(
     description="Superadmin deletes any team (except superadmins).",
 )
 async def delete_team(
-    slug_team: str,
-    superuser: User = Depends(current_superuser),
-    db: AsyncSession = Depends(get_async_session),
+        slug_team: str,
+        superuser: User = Depends(current_superuser),
+        team_service=Depends(get_team_service),
 ) -> None:
-    result = await db.scalars(select(Team).where(Team.slug == slug_team))
-    team = result.one_or_none()
-
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
-
-    await db.delete(team)
-    await db.commit()
+    try:
+        await team_service.delete_team(slug_team)
+    except ValueError as exc:
+        if "team_not_found" in str(exc) or "not_found" in str(exc):
+            raise HTTPException(status_code=404, detail="team_not_found")
+        if "dependencies" in str(exc):
+            raise HTTPException(status_code=409, detail="team_has_dependencies")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError:
+        raise HTTPException(status_code=500, detail="database_error")
