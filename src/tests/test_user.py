@@ -1,9 +1,15 @@
 import pytest
-from app.models.db_user import User
-from app.routers.user import delete_user, get_user, get_users, update_user
-from app.schemas.scheme_user import RoleCompany, UserUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.application.routers.router_user import (
+    delete_user,
+    get_user,
+    get_users,
+    update_user,
+)
+from src.application.schemas.scheme_user import RoleCompany, UserUpdate
+from src.infrastructure.db.models.db_user import User
 
 
 @pytest.mark.asyncio

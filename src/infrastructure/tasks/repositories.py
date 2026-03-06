@@ -22,6 +22,15 @@ class SqlAlchemyTaskRepository(TaskRepository):
             raise LookupError("task_not_found")
         return task
 
+    async def get_task_by_id(self, task_id: int) -> Task:
+        result_task = await self._session.scalars(
+            select(Task).where(Task.id == task_id)
+        )
+        task = result_task.one_or_none()
+        if task is None:
+            raise LookupError("task_not_found")
+        return task
+
     async def get_all_task_for_admin(self) -> Sequence[Task]:
         result_task = await self._session.scalars(select(Task))
         tasks = result_task.all()

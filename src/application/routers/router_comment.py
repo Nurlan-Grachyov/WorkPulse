@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from src.application.auth import current_active_user
 from src.application.schemas.scheme_comment import (
@@ -11,18 +11,18 @@ from src.application.schemas.scheme_comment import (
 from src.application.services.service_comments import CommentService
 from src.infrastructure.comments.repositories import SqlAlchemyCommentRepository
 from src.infrastructure.db.database import get_async_session
-from src.infrastructure.db.models.db_comment import Comment
-from src.infrastructure.db.models.db_task import Task
 from src.infrastructure.db.models.db_user import User
+from src.infrastructure.tasks.repositories import SqlAlchemyTaskRepository
 
 comment_router = APIRouter(prefix="/comments", tags=["comments"])
 
 
 async def get_comment_services(
-        db: AsyncSession = Depends(get_async_session),
-):
+    db: AsyncSession = Depends(get_async_session),
+) -> CommentService:
+    task_repo = SqlAlchemyTaskRepository(db)
     comment_repo = SqlAlchemyCommentRepository(db)
-    comment_service = CommentService(comment_repo)
+    comment_service = CommentService(comment_repo, task_repo)
     return comment_service
 
 
@@ -30,51 +30,48 @@ async def get_comment_services(
     "/create_comment",
     response_model=CommentGet,
     status_code=201,
-    summary="Create new comment",
-    description="Creates a new comment for a specific task. "
-                "Authenticated users can only create comments for tasks they have access to.",
+    summary="Создать новый комментарий",
+    description=(
+        "Создаёт новый комментарий к конкретной задаче. "
+        "Аутентифицированные пользователи могут создавать комментарии "
+        "только к задачам, к которым у них есть доступ."
+    ),
 )
 async def create_comment(
-        comment: CommentCreate,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    comment: CommentCreate,
+    current_user: User = Depends(current_active_user),
+    service: CommentService = Depends(get_comment_services),
 ) -> CommentGet:
     """
-    Create a new comment instance with current user as author
+    Создаёт новый комментарий от имени текущего пользователя.
     """
-    result = await db.scalars(select(Task).where(Task.id == comment.task_id))
-    task = result.one_or_none()
-    if not task:
+    try:
+        created_comment = await service.create_comment(comment, current_user)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    comment = Comment(**comment.model_dump(), user_id=current_user.id)
-
-    db.add(comment)
-    await db.commit()
-    await db.refresh(comment)
-
-    return CommentGet.model_validate(comment)
+    return CommentGet.model_validate(created_comment)
 
 
 @comment_router.get(
     "/tasks/{task_id}",
     response_model=list[CommentGet],
     status_code=200,
-    summary="Get comments by task ID",
-    description="Retrieves all comments for a specific task with eager-loaded author and task relationships.",
+    summary="Получить комментарии по ID задачи",
+    description=(
+        "Возвращает все комментарии для заданной задачи "
+        "с жадной загрузкой автора и связанной задачи."
+    ),
 )
 async def get_comments_by_task(
-        task_id: int,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    task_id: int,
+    current_user: User = Depends(current_active_user),
+    service: CommentService = Depends(get_comment_services),
 ) -> list[CommentGet]:
-    """Get comments for specific task"""
-    result = await db.scalars(select(Comment).where(Comment.task_id == task_id))
-    comments = result.all()
-
-    if not comments:
-        raise HTTPException(status_code=404, detail="Comments not found")
-
+    """
+    Получить список комментариев для конкретной задачи.
+    """
+    comments = await service.get_comments_by_task(task_id)
     return [CommentGet.model_validate(comment) for comment in comments]
 
 
@@ -82,24 +79,21 @@ async def get_comments_by_task(
     "/users/",
     response_model=list[CommentGet],
     status_code=200,
-    summary="Get comments by user email",
-    description="Retrieves all comments authored by a specific user. "
-                "Joins through user relationship for efficient filtering.",
+    summary="Получить комментарии по email пользователя",
+    description=(
+        "Возвращает все комментарии, созданные указанным пользователем. "
+        "Фильтрация выполняется через JOIN по связи с пользователем."
+    ),
 )
 async def get_comments_by_user(
-        user_email: str,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    user_email: str,
+    current_user: User = Depends(current_active_user),
+    service: CommentService = Depends(get_comment_services),
 ) -> list[CommentGet]:
-    """Get comments for user by email"""
-    result = await db.scalars(
-        select(Comment).join(Comment.user).where(User.email == user_email)
-    )
-    comments = result.all()
-
-    if not comments:
-        raise HTTPException(status_code=404, detail="Comments not found")
-
+    """
+    Получить комментарии, созданные пользователем по его email.
+    """
+    comments = await service.get_comments_by_user(user_email)
     return [CommentGet.model_validate(comment) for comment in comments]
 
 
@@ -107,60 +101,69 @@ async def get_comments_by_user(
     "/{comment_id}",
     response_model=CommentGet,
     status_code=200,
-    summary="Update comment",
-    description="Updates an existing comment. "
-                "Only comment authors can modify their own comments. Supports partial updates.",
+    summary="Обновить комментарий",
+    description=(
+        "Обновляет существующий комментарий. "
+        "Только автор комментария может изменять свой комментарий. "
+        "Поддерживаются частичные обновления (PATCH)."
+    ),
 )
 async def update_comment(
-        comment_id: int,
-        comment: CommentUpdate,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    comment_id: int,
+    comment: CommentUpdate,
+    current_user: User = Depends(current_active_user),
+    service: CommentService = Depends(get_comment_services),
 ) -> CommentGet:
-    """Update comment"""
-    result = await db.scalars(
-        select(Comment).where(
-            Comment.id == comment_id, Comment.user_id == current_user.id
+    """
+    Обновить существующий комментарий.
+    """
+    try:
+        updated_comment = await service.update_comment(
+            comment_id, comment, current_user
         )
-    )
-    db_comment = result.first()
-
-    if not db_comment:
+    except LookupError:
         raise HTTPException(status_code=404, detail="Comment not found")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid comment data",
+        )
 
-    update_data = comment.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_comment, field, value)
-
-    await db.commit()
-    await db.refresh(db_comment)
-
-    return CommentGet.model_validate(db_comment)
+    return CommentGet.model_validate(updated_comment)
 
 
 @comment_router.delete(
     "/{comment_id}",
     response_model=None,
-    summary="Delete a comment",
-    description="Delete a comment by comment's id. Author's comment access",
-    status_code=204,
+    summary="Удалить комментарий",
+    description=(
+        "Удаляет комментарий по его ID. "
+        "Доступно автору комментария и администраторам."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_comment(
-        comment_id: int,
-        current_user: User = Depends(current_active_user),
-        db: AsyncSession = Depends(get_async_session),
+    comment_id: int,
+    current_user: User = Depends(current_active_user),
+    service: CommentService = Depends(get_comment_services),
 ) -> None:
-    """Comment deletion"""
-    result = await db.scalars(
-        select(Comment).where(
-            Comment.id == comment_id,
-            Comment.user_id == current_user.id,
+    """
+    Удалить комментарий.
+    """
+    try:
+        await service.delete_comment(comment_id, current_user)
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found",
         )
-    )
-    comment = result.first()
-
-    if not comment:
-        raise HTTPException(status_code=404, detail="Comment not found")
-
-    await db.delete(comment)
-    await db.commit()
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+    except RuntimeError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        )

@@ -1,15 +1,16 @@
 from datetime import datetime, timedelta
 
 import pytest
-from app.models.db_meeting import Meeting
-from app.routers.meeting import (
+from sqlalchemy import select
+
+from src.application.routers.router_meeting import (
     add_user_to_meeting,
     create_meeting,
     delete_meeting,
     get_meeting,
 )
-from app.schemas.scheme_meeting import MeetingCreate
-from sqlalchemy import select
+from src.application.schemas.scheme_meeting import MeetingCreate
+from src.infrastructure.db.models.db_meeting import Meeting
 
 
 @pytest.mark.asyncio

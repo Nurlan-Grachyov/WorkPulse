@@ -41,7 +41,7 @@ class TeamService:
         return created_team
 
     async def get_users_of_team(self, slug_team: str) -> Sequence[User] | None:
-        team = await self._teams.get_team_by_title_or_slug(slug=slug_team)
+        await self._teams.get_team_by_title_or_slug(slug=slug_team)
         users = await self._teams.get_users_of_team(slug_team)
         return users
 

@@ -11,8 +11,6 @@ class EvaluationRepository(Protocol):
 
     async def save(self, evaluation: EvaluationCreate): ...
 
-    async def get_team_evaluations(self, current_user: User):
-        pass
+    async def get_team_evaluations(self, current_user: User): ...
 
-    async def get_own_evaluations(self, current_user: User):
-        pass
+    async def get_own_evaluations(self, current_user: User): ...

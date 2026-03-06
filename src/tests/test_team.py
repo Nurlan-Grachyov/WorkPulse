@@ -1,18 +1,19 @@
 import pytest
-from app.models.db_team import Team
-from app.models.db_user import User
-from app.routers.team import (
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.application.routers.router_team import (
     add_user_to_team,
     change_role_user,
     create_team,
     delete_team,
     get_users_of_team,
 )
-from app.schemas.scheme_team import TeamCreate
-from app.schemas.scheme_user import RoleTeam
-from fastapi import HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from src.application.schemas.scheme_team import TeamCreate
+from src.application.schemas.scheme_user import RoleTeam
+from src.infrastructure.db.models.db_team import Team
+from src.infrastructure.db.models.db_user import User
 
 
 @pytest.mark.asyncio

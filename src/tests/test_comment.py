@@ -1,14 +1,14 @@
 import pytest
-from app.routers.comment import (
+from sqlalchemy import select
+
+from src.application.routers.router_comment import (
     create_comment,
     delete_comment,
     get_comments_by_task,
     get_comments_by_user,
     update_comment,
 )
-from app.schemas.scheme_comment import CommentCreate, CommentUpdate
-from sqlalchemy import select
-
+from src.application.schemas.scheme_comment import CommentCreate, CommentUpdate
 from src.infrastructure.db.models.db_comment import Comment
 
 

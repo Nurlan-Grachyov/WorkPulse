@@ -1,5 +1,6 @@
 import pytest
-from app.routers.calendar import get_info
+
+from src.application.routers.router_calendar import get_info
 
 
 @pytest.mark.asyncio

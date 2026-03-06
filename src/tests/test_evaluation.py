@@ -1,6 +1,7 @@
 import pytest
-from app.routers.evaluation import create_evaluation, get_evaluations
-from app.schemas.scheme_evaluation import EvaluationCreate
+
+from src.application.routers.router_evaluation import create_evaluation, get_evaluations
+from src.application.schemas.scheme_evaluation import EvaluationCreate
 
 
 @pytest.mark.asyncio

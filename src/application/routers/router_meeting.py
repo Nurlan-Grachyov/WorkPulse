@@ -36,7 +36,7 @@ async def get_meeting_service(
     status_code=status.HTTP_201_CREATED,
     summary="Создать встречу",
     description="Менеджеры и администраторы могут создавать встречи. "
-                "Проверяется пересечение по времени в пределах команды.",
+    "Проверяется пересечение по времени в пределах команды.",
 )
 async def create_meeting(
     meeting: MeetingCreate,
@@ -112,7 +112,7 @@ async def add_user_to_meeting(
     response_model=MeetingGet,
     summary="Получить встречу по id",
     description="Администраторы видят любые встречи. "
-                "Остальные пользователи видят только встречи, в которых участвуют.",
+    "Остальные пользователи видят только встречи, в которых участвуют.",
 )
 async def get_meeting(
     meeting_id: int,
