@@ -11,17 +11,23 @@ from src.application.schemas.scheme_team import TeamCreate, TeamGet
 from src.application.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
 from src.application.services.service_teams import TeamService
 from src.infrastructure.db.database import get_async_session
-from src.infrastructure.db.models.db_team import TeamUser
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.teams.repositories import SqlAlchemyTeamRepository
 
 team_router = APIRouter(tags=["teams"], prefix="/team")
 
 
-def get_team_service(db: AsyncSession = Depends(get_async_session)) -> TeamService:
+async def get_team_service(
+    db: AsyncSession = Depends(get_async_session),
+) -> TeamService:
+    """
+    Возвращает сервис работы с командами.
+
+    Создаёт репозиторий команд на основе текущей async-сессии БД
+    и оборачивает его в слой бизнес-логики TeamService.
+    """
     team_repo = SqlAlchemyTeamRepository(db)
     team_service = TeamService(team_repo)
-
     return team_service
 
 
@@ -29,55 +35,57 @@ def get_team_service(db: AsyncSession = Depends(get_async_session)) -> TeamServi
     "/create_team",
     response_model=TeamGet,
     status_code=201,
-    summary="Create new team",
-    description="Creates a team with unique title. Superadmin access only.",
+    summary="Создать новую команду",
+    description="Создаёт новую команду с уникальным названием. Доступно только суперпользователю.",
 )
 async def create_team(
-        team_in: TeamCreate,
-        superuser: User = Depends(current_superuser),
-        service=Depends(get_team_service),
+    team_in: TeamCreate,
+    superuser: User = Depends(current_superuser),
+    service=Depends(get_team_service),
 ) -> TeamGet:
     """
-    Creates a new team in the system.
+    Создаёт новую команду в системе.
 
-    **Validations:**
-    - Team title must be unique
-    - Superadmin access only
+    Проверки:
+    - Название команды (`title_team`) должно быть уникальным.
+    - Доступ к операции есть только у суперпользователя.
 
-    **Returns:**
-    - Created team with generated slug
+    Возвращает:
+    - Схему TeamGet с данными созданной команды (включая slug).
     """
     try:
         team = await service.create_team(team_in)
         return TeamGet.model_validate(team)
-    except PermissionError:
-        raise HTTPException(403, detail="You dont have enough rights")
-    except LookupError:
-        raise HTTPException(404, detail="Assignee is not found")
-    except ValueError:
-        raise HTTPException(409, detail="Team already exists")
+    except ValueError as exc:
+        if "team_exists" in str(exc):
+            raise HTTPException(status_code=409, detail="team_already_exists")
+        raise HTTPException(status_code=400, detail="bad_request")
     except SQLAlchemyError:
-        raise HTTPException(500, detail="Try later")
+        raise HTTPException(status_code=500, detail="try_later")
 
 
 @team_router.get(
     "/{slug_team}/users/",
     status_code=200,
-    summary="Get all team users",
-    description="Returns team users list with preloaded tasks and comments.",
+    summary="Получить всех пользователей команды",
+    description="Возвращает список пользователей команды с предзагруженными задачами и комментариями. "
+                "Доступно только суперпользователю.",
 )
 async def get_users_of_team(
-        slug_team: str,
-        superuser: User = Depends(current_superuser),
-        service=Depends(get_team_service),
+    slug_team: str,
+    superuser: User = Depends(current_superuser),
+    service=Depends(get_team_service),
 ) -> List[UserReadWithTeamRole]:
     """
-    Retrieves all users of specific team.
+    Получить список пользователей конкретной команды.
 
-    **Features:**
-    - Eager loading of user tasks and comments (selectinload)
-    - JOIN through TeamUser association table
-    - Superadmin access only
+    Особенности:
+    - Используется жадная загрузка (selectinload) задач и комментариев пользователя.
+    - Выполняется JOIN через таблицу связей TeamUser.
+    - Операция доступна только суперпользователю.
+
+    Возвращает:
+    - Список схем UserReadWithTeamRole для всех пользователей команды.
     """
     try:
         users = await service.get_users_of_team(slug_team)
@@ -92,81 +100,90 @@ async def get_users_of_team(
 @team_router.post(
     "/{slug_team}/users/add_user/",
     status_code=201,
-    summary="Add user to team",
-    description="Adds existing user to team with specified role.",
+    summary="Добавить пользователя в команду",
+    description="Добавляет существующего пользователя в команду с указанной ролью. Доступно только суперпользователю.",
 )
 async def add_user_to_team(
-        slug_team: str,
-        user_email: str,
-        role: RoleTeam,
-        superuser: User = Depends(current_superuser),
-        user_service=Depends(get_user_service),
-        team_service=Depends(get_team_service),
-) -> TeamUser:
+    slug_team: str,
+    user_email: str,
+    role: RoleTeam,
+    superuser: User = Depends(current_superuser),
+    user_service=Depends(get_user_service),
+    team_service=Depends(get_team_service),
+):
     """
-    Adds user to team by creating TeamUser association record.
+    Добавляет пользователя в команду, создавая запись связи TeamUser.
 
-    **Validations:**
-    1. User exists
-    2. Team exists
-    3. User not already in team (user_id uniqueness per team)
+    Проверки:
+    1. Пользователь с указанным email существует.
+    2. Команда с указанным slug существует.
+    3. Пользователь ещё не состоит в этой команде (уникальность пары user_id+team_id).
 
-    **Returns:**
-    - Confirmation with association details
+    Возвращает:
+    - Данные созданной связи команда–пользователь (TeamUser) в виде ORM-объекта или схемы
+    (в зависимости от реализации).
     """
     try:
-        user = await user_service.get_user(slug=slug_team)
+        user = await user_service.get_user(email=user_email)
     except LookupError:
         raise HTTPException(status_code=404, detail=f"User {user_email} not found")
+
     try:
         new_team_user = await team_service.add_user_to_team(slug_team, user.id, role)
         return new_team_user
     except ValueError:
-        raise HTTPException(409, detail="The user already exists in the team")
+        raise HTTPException(
+            status_code=409,
+            detail="The user already exists in the team",
+        )
     except LookupError:
-        raise HTTPException(status_code=404, detail=f"Team {slug_team} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Team {slug_team} not found",
+        )
 
 
 @team_router.patch(
     "/{slug_team}/users/{slug_user}/role/",
     status_code=200,
-    summary="Change user role in team",
-    description="Changes user role with 'single manager per team' business logic.",
+    summary="Изменить роль пользователя в команде",
+    description="Изменяет роль пользователя в команде с учётом бизнес-правила «только один менеджер в команде». "
+                "Доступно только суперпользователю.",
 )
 async def change_role_user(
-        slug_team: str,
-        slug_user: str,
-        role_data: RoleTeam,
-        user_service=Depends(get_user_service),
-        team_service=Depends(get_team_service),
-        superuser: User = Depends(current_superuser),
-) -> TeamUser:
+    slug_team: str,
+    slug_user: str,
+    role_data: RoleTeam,
+    user_service=Depends(get_user_service),
+    team_service=Depends(get_team_service),
+    superuser: User = Depends(current_superuser),
+):
     """
-    Changes user role in team enforcing "one manager per team" business rule.
+    Изменяет роль пользователя в команде, соблюдая правило «один менеджер на команду».
 
-    **Algorithm when promoting to MANAGER:**
-    1. Downgrade all current team managers (except new one)
-    2. Assign new role to target user
+    Логика для роли MANAGER:
+    1. Понизить всех текущих менеджеров команды (кроме целевого пользователя) до роли USER.
+    2. Назначить целевому пользователю роль MANAGER.
 
-    **Other roles:** Simple role change without side effects.
+    Для остальных ролей:
+    - Выполняется обычная смена роли без побочных эффектов.
 
-    **Returns:**
-    - Role change confirmation
+    Возвращает:
+    - Обновлённый объект связи TeamUser или соответствующую схему с новой ролью.
     """
-    # Проверки пользователя
     try:
         user = await user_service.get_user(slug=slug_user)
     except LookupError:
         raise HTTPException(status_code=404, detail="user_not_found")
 
-    # Основная логика с обработкой всех ошибок
     try:
         new_role = await team_service.change_role_user(
             slug_team=slug_team, user=user, role_data=role_data
         )
     except LookupError as exc:
         raise HTTPException(
-            status_code=404, detail=str(exc)  # "user_not_found" или "team_not_found"
+            status_code=404,
+            detail=str(exc),  # например: "user_not_in_team" или "team_not_found"
         )
     except ValueError as exc:
         if "integrity_error" in str(exc):
@@ -176,7 +193,8 @@ async def change_role_user(
         if "db_error" in str(exc):
             raise HTTPException(status_code=500, detail="database_error")
         raise HTTPException(status_code=500, detail="internal_error")
-    except Exception:
+    except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="unexpected_error")
 
     return new_role
@@ -185,14 +203,27 @@ async def change_role_user(
 @team_router.delete(
     "/{slug_team}/",
     status_code=204,
-    summary="Delete team",
-    description="Superadmin deletes any team (except superadmins).",
+    summary="Удалить команду",
+    description="Удаляет команду по slug. Доступно только суперпользователю. "
+                "Нельзя удалить команду, от которой зависят другие сущности (FK).",
 )
 async def delete_team(
-        slug_team: str,
-        superuser: User = Depends(current_superuser),
-        team_service=Depends(get_team_service),
+    slug_team: str,
+    superuser: User = Depends(current_superuser),
+    team_service=Depends(get_team_service),
 ) -> None:
+    """
+    Удаляет команду по её slug с обработкой ошибок целостности данных.
+
+    Проверки/ограничения:
+    - Если команда не найдена — возвращается 404.
+    - Если у команды есть зависимые сущности (например, пользователи, задачи) и БД не позволяет удалить её
+      из-за ограничений внешних ключей — возвращается 409.
+    - При любых других ошибках БД возвращается 500.
+
+    Возвращает:
+    - 204 No Content при успешном удалении.
+    """
     try:
         await team_service.delete_team(slug_team)
     except ValueError as exc:
@@ -201,5 +232,6 @@ async def delete_team(
         if "dependencies" in str(exc):
             raise HTTPException(status_code=409, detail="team_has_dependencies")
         raise HTTPException(status_code=400, detail=str(exc))
-    except RuntimeError:
+    except RuntimeError as e:
+        print(e)
         raise HTTPException(status_code=500, detail="database_error")

@@ -24,23 +24,16 @@ class SqlAlchemyTeamRepository(TeamRepository):
     async def get_team_by_title_or_slug(
         self, title: str = None, slug: str = None
     ) -> Team | None:
-        existing_team = None
-        if title:
-            result_existing_team = await self._session.scalars(
-                select(Team).where(Team.title == title)
-            )
-            existing_team = result_existing_team.one_or_none()
+        stmt = None
+        if title is not None:
+            stmt = select(Team).where(Team.title == title)
+        elif slug is not None:
+            stmt = select(Team).where(Team.slug == slug)
+        else:
+            return None
 
-        elif slug:
-            result_existing_team = await self._session.scalars(
-                select(Team).where(Team.slug == slug)
-            )
-            existing_team = result_existing_team.one_or_none()
-
-        if existing_team is None:
-            raise LookupError("team_no_found")
-
-        return existing_team
+        result = await self._session.scalars(stmt)
+        return result.one_or_none()
 
     async def get_users_of_team(self, slug_team: str) -> Sequence[User]:
         stmt = (
@@ -110,4 +103,5 @@ class SqlAlchemyTeamRepository(TeamRepository):
             raise ValueError("team_has_dependencies") from exc
         except SQLAlchemyError as exc:
             await self._session.rollback()
+            print(exc)
             raise RuntimeError("database_error") from exc

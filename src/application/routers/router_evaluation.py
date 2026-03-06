@@ -1,178 +1,128 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from starlette import status
 
 from src.application.auth import current_active_user
+from src.application.routers.router_user import get_user_service
 from src.application.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
-from src.application.schemas.scheme_user import RoleCompany, RoleTeam
+from src.application.services.service_evaluations import EvaluationService
 from src.infrastructure.db.database import get_async_session
-from src.infrastructure.db.models.db_evaluation import Evaluation
-from src.infrastructure.db.models.db_task import Task
-from src.infrastructure.db.models.db_team import Team, TeamUser
 from src.infrastructure.db.models.db_user import User
+from src.infrastructure.evaluations.repositories import SqlAlchemyEvaluationRepository
+from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 
 evaluation_router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 
 
-@evaluation_router.post("/create_evaluation", response_model=EvaluationGet)
+async def get_evaluation_services(
+    db: AsyncSession = Depends(get_async_session),
+):
+    user_repo = SqlAlchemyUserRepository(db)
+
+    evaluation_repo = SqlAlchemyEvaluationRepository(db)
+    evaluation_service = EvaluationService(evaluation_repo, user_repo)
+    return evaluation_service
+
+
+@evaluation_router.post(
+    "/create_evaluation",
+    response_model=EvaluationGet,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать оценку задачи",
+    description="Создаёт оценку для задачи. Одна оценка на задачу.",
+)
 async def create_evaluation(
     evaluation: EvaluationCreate,
     current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
-    result = await db.scalars(
-        select(Task)
-        .options(joinedload(Task.evaluation))
-        .where(Task.id == evaluation.task_id)
-    )
-    task = result.one_or_none()
+    evaluation_service=Depends(get_evaluation_services),
+) -> EvaluationGet:
+    """
+    Создать оценку для задачи.
 
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    elif task.evaluation:
+    Ограничения:
+    - Для каждой задачи может существовать только одна оценка.
+    - Права доступа проверяются политикой RoleBasedEvaluationAccessPolicy.
+
+    Исключения:
+    - HTTP 404: Задача не найдена.
+    - HTTP 403: Недостаточно прав для создания оценки.
+    - HTTP 409: Оценка для этой задачи уже существует.
+    - HTTP 500: Ошибка базы данных.
+    """
+    try:
+        db_evaluation = await evaluation_service.create_evaluation(
+            current_user, evaluation
+        )
+    except LookupError as exc:
         raise HTTPException(
-            status_code=409, detail="Evaluation for this task already exists"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc) or "task_not_found",
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc) or "forbidden",
+        )
+    except ValueError as exc:
+        if "Evaluation for this task already exists" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="evaluation_already_exists",
+            )
+        if "team_has_dependencies" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="integrity_error",
+            )
+        raise HTTPException(status_code=400, detail=str(exc) or "bad_request")
+    except RuntimeError as exc:
+        if "database_error" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="database_error",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="internal_error",
         )
 
-    result = await db.execute(
-        select(User)
-        .options(joinedload(User.team_link))
-        .where(User.id == current_user.id)
-    )
-    user_with_team = result.scalars().one()
-
-    if (
-        user_with_team.team_link is None
-        or user_with_team.team_link.role is not RoleTeam.MANAGER
-    ):
-        raise HTTPException(status_code=403, detail="Manager access only")
-
-    evaluation = Evaluation(**evaluation.model_dump())
-
-    db.add(evaluation)
-    await db.commit()
-    await db.refresh(evaluation)
-
-    return EvaluationGet.model_validate(evaluation)
+    return EvaluationGet.model_validate(db_evaluation)
 
 
-@evaluation_router.get("/get_evaluations")
+@evaluation_router.get(
+    "/get_evaluations",
+    summary="Получить оценки задач",
+    description="Возвращает оценки задач в зависимости от роли пользователя: админ, менеджер, обычный пользователь.",
+)
 async def get_evaluations(
     current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+    evaluation_service=Depends(get_evaluation_services),
+    user_service=Depends(get_user_service),
 ):
-    if current_user.role is not RoleCompany.ADMIN:
+    """
+    Возвращает агрегированные оценки задач.
 
-        result = await db.execute(
-            select(User)
-            .options(joinedload(User.team_link))
-            .where(User.id == current_user.id)
+    Логика:
+    - Админ: видит оценки по всем командам.
+    - Менеджер: видит оценки всех участников своей команды (кроме себя).
+    - Обычный пользователь: видит только свои задачи и средний балл.
+
+    Исключения:
+    - HTTP 404: Пользователь не найден или не привязан к команде.
+    - HTTP 500: Ошибка при работе с БД.
+    """
+    try:
+        current_user_with_team_link = await user_service.get_user_with_team_link(
+            email=current_user.email
         )
-        user_with_team = result.scalars().one()
+    except LookupError:
+        raise HTTPException(status_code=404, detail="user_not_found")
 
-        if user_with_team.team_link.role is RoleTeam.MANAGER:
-            team_id = user_with_team.team_link.team_id
-            users_result = await db.execute(
-                select(User)
-                .join(TeamUser, TeamUser.user_id == User.id)
-                .options(selectinload(User.tasks).selectinload(Task.evaluation))
-                .where(TeamUser.team_id == team_id)
-            )
-
-            team_members = users_result.scalars().unique().all()
-
-            users_task_evaluations = {}
-
-            for user in team_members:
-                if user.id == current_user.id:
-                    continue
-                user_tasks = {}
-                total_evaluations = 0
-                score_tasks = 0
-
-                for task in user.tasks:
-                    user_tasks[task.title] = (
-                        task.evaluation.evaluation if task.evaluation else None
-                    )
-
-                    score = task.evaluation.evaluation if task.evaluation else None
-                    if score is not None:
-                        total_evaluations += score
-                        score_tasks += 1
-
-                avg_score = total_evaluations / score_tasks if score_tasks > 0 else None
-
-                users_task_evaluations[user.email] = {
-                    "tasks": user_tasks,
-                    "average_evaluations": avg_score,
-                }
-
-            return users_task_evaluations
-
-        else:
-            result = await db.scalars(
-                select(User)
-                .options(joinedload(User.tasks).joinedload(Task.evaluation))
-                .where(User.id == current_user.id)
-            )
-
-            db_user = result.unique().one()
-
-            user_evaluations = {}
-            total_evaluations = 0
-            score_tasks = 0
-
-            for task in db_user.tasks:
-                user_evaluations[task.title] = task.evaluation
-                score = task.evaluation.evaluation if task.evaluation else None
-
-                if score is not None:
-                    total_evaluations += score
-                    score_tasks += 1
-
-            avg_score = total_evaluations / score_tasks if score_tasks > 0 else None
-            user_evaluations["average_evaluations"] = avg_score
-
-            return user_evaluations
-
-    elif current_user.role is RoleCompany.ADMIN:
-        result = await db.execute(
-            select(Team).options(
-                selectinload(Team.members)  # team -> team_users
-                .selectinload(TeamUser.user)  # team_user -> user
-                .selectinload(User.tasks)  # user -> tasks
-                .selectinload(Task.evaluation)  # task -> evaluation
-            )
+    try:
+        evaluations = await evaluation_service.get_evaluations(
+            current_user_with_team_link
         )
-        teams = result.scalars().unique().all()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "database_error")
 
-        teams_users_task_evaluations = {}
-
-        for team in teams:
-            team_users_dict = {}
-
-            for link in team.members:  # TeamUser
-                user = link.user
-                user_tasks_dict = {}
-                total_evaluations = 0
-                score_tasks = 0
-
-                for task in user.tasks:
-                    user_tasks_dict[task.title] = (
-                        task.evaluation.evaluation if task.evaluation else None
-                    )
-                    score = task.evaluation.evaluation if task.evaluation else None
-
-                    if score is not None:
-                        total_evaluations += score
-                        score_tasks += 1
-
-                avg_score = total_evaluations / score_tasks if score_tasks > 0 else None
-                user_tasks_dict["average_evaluations"] = avg_score
-
-                team_users_dict[user.email] = user_tasks_dict
-
-            teams_users_task_evaluations[team.slug] = team_users_dict
-
-        return teams_users_task_evaluations
+    return evaluations

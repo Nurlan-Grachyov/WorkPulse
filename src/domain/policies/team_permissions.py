@@ -5,7 +5,7 @@ from src.application.schemas.scheme_user import RoleTeam
 
 class UniqueTeamRolePolicy(ABC):
     @abstractmethod
-    def is_satisfied(self, role_data: str) -> bool:
+    def is_unique(self, role_data: str) -> bool:
         """Проверяет, выполняется ли правило уникальности роли в команде."""
         ...
 

@@ -8,6 +8,8 @@ from src.application.schemas.scheme_comment import (
     CommentGet,
     CommentUpdate,
 )
+from src.application.services.service_comments import CommentService
+from src.infrastructure.comments.repositories import SqlAlchemyCommentRepository
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_comment import Comment
 from src.infrastructure.db.models.db_task import Task
@@ -16,18 +18,26 @@ from src.infrastructure.db.models.db_user import User
 comment_router = APIRouter(prefix="/comments", tags=["comments"])
 
 
+async def get_comment_services(
+        db: AsyncSession = Depends(get_async_session),
+):
+    comment_repo = SqlAlchemyCommentRepository(db)
+    comment_service = CommentService(comment_repo)
+    return comment_service
+
+
 @comment_router.post(
     "/create_comment",
     response_model=CommentGet,
     status_code=201,
     summary="Create new comment",
     description="Creates a new comment for a specific task. "
-    "Authenticated users can only create comments for tasks they have access to.",
+                "Authenticated users can only create comments for tasks they have access to.",
 )
 async def create_comment(
-    comment: CommentCreate,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        comment: CommentCreate,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> CommentGet:
     """
     Create a new comment instance with current user as author
@@ -54,9 +64,9 @@ async def create_comment(
     description="Retrieves all comments for a specific task with eager-loaded author and task relationships.",
 )
 async def get_comments_by_task(
-    task_id: int,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        task_id: int,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> list[CommentGet]:
     """Get comments for specific task"""
     result = await db.scalars(select(Comment).where(Comment.task_id == task_id))
@@ -74,12 +84,12 @@ async def get_comments_by_task(
     status_code=200,
     summary="Get comments by user email",
     description="Retrieves all comments authored by a specific user. "
-    "Joins through user relationship for efficient filtering.",
+                "Joins through user relationship for efficient filtering.",
 )
 async def get_comments_by_user(
-    user_email: str,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        user_email: str,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> list[CommentGet]:
     """Get comments for user by email"""
     result = await db.scalars(
@@ -99,13 +109,13 @@ async def get_comments_by_user(
     status_code=200,
     summary="Update comment",
     description="Updates an existing comment. "
-    "Only comment authors can modify their own comments. Supports partial updates.",
+                "Only comment authors can modify their own comments. Supports partial updates.",
 )
 async def update_comment(
-    comment_id: int,
-    comment: CommentUpdate,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        comment_id: int,
+        comment: CommentUpdate,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> CommentGet:
     """Update comment"""
     result = await db.scalars(
@@ -136,9 +146,9 @@ async def update_comment(
     status_code=204,
 )
 async def delete_comment(
-    comment_id: int,
-    current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+        comment_id: int,
+        current_user: User = Depends(current_active_user),
+        db: AsyncSession = Depends(get_async_session),
 ) -> None:
     """Comment deletion"""
     result = await db.scalars(

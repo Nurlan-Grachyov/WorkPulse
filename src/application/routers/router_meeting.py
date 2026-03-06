@@ -1,231 +1,193 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 from starlette import status
 
-from src.application.auth import current_active_user, has_manager_rights
+from src.application.auth import current_active_user
+from src.application.routers.router_user import get_user_service
 from src.application.schemas.scheme_meeting import MeetingCreate, MeetingGet
-from src.application.schemas.scheme_user import RoleCompany, RoleTeam
+from src.application.schemas.scheme_user import UserRead
+from src.application.services.service_meetings import MeetingService
 from src.infrastructure.db.database import get_async_session
-from src.infrastructure.db.models.db_meeting import Meeting
 from src.infrastructure.db.models.db_user import User
+from src.infrastructure.meetings.repositories import SqlAlchemyMeetingRepository
+from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 
 meeting_router = APIRouter(prefix="/meetings", tags=["meetings"])
+
+
+async def get_meeting_service(
+    db: AsyncSession = Depends(get_async_session),
+) -> MeetingService:
+    """
+    Возвращает сервис для работы со встречами.
+
+    Создаёт репозиторий встреч и репозиторий пользователей, передаёт их в сервис MeetingService.
+    Используется как зависимость во всех эндпоинтах, связанных со встречами.
+    """
+    user_repo = SqlAlchemyUserRepository(db)
+    meet_repo = SqlAlchemyMeetingRepository(db)
+    meet_service = MeetingService(meet_repo, user_repo)
+    return meet_service
 
 
 @meeting_router.post(
     "/create_meeting",
     response_model=MeetingGet,
     status_code=status.HTTP_201_CREATED,
-    summary="Create new meeting",
-    description="Managers or Admins can create meetings. Checks time slot conflicts.",
+    summary="Создать встречу",
+    description="Менеджеры и администраторы могут создавать встречи. "
+                "Проверяется пересечение по времени в пределах команды.",
 )
 async def create_meeting(
     meeting: MeetingCreate,
     current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
+    meeting_service=Depends(get_meeting_service),
+    user_service=Depends(get_user_service),
+) -> MeetingGet:
     """
-    Create meeting with role and time conflict validation.
+    Создать новую встречу с проверкой роли и пересечения по времени.
 
-    Raises:
-        HTTP 404: User not found
-        HTTP 403: Insufficient rights (not Manager or Admin)
-        HTTP 409: Time slot already occupied
+    Проверки:
+    - Пользователь существует и активен.
+    - Пользователь имеет достаточные права (менеджер команды или администратор компании).
+    - В команде нет другой встречи в тот же временной слот.
+
+    Исключения:
+    - HTTP 404: Пользователь не найден.
+    - HTTP 403: Недостаточно прав (не менеджер и не администратор).
+    - HTTP 409: В указанное время уже существует встреча в этой команде.
+
+    Возвращает:
+    - Схему MeetingGet с данными созданной встречи.
     """
-    # Verify user exists and has required role
-    result_user = await db.scalars(
-        select(User)
-        .options(joinedload(User.team_link))
-        .where(User.id == current_user.id)
-    )
-    db_user = result_user.one_or_none()
-    if not db_user:
+    try:
+        user = await user_service.get_user_with_team_link(email=current_user.email)
+    except LookupError:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Manager in team OR Company Admin required
-    if (
-        not (db_user.team_link and db_user.team_link.role == RoleTeam.MANAGER)
-        and db_user.role != RoleCompany.ADMIN
-    ):
-        raise HTTPException(status_code=403, detail="Manager or Admin access only")
-
-    # Check time slot conflict
-    result_meeting = await db.scalars(
-        select(Meeting).where(Meeting.starts_at == meeting.starts_at)
-    )
-    if result_meeting.one_or_none():
+    try:
+        created_meeting = await meeting_service.create_meeting(user, meeting)
+    except LookupError:
         raise HTTPException(
-            status_code=409, detail="A meeting at this time already exists."
+            status_code=409,
+            detail="A meeting at this time already exists",
         )
-
-    # Create and persist meeting
-    created_meeting = Meeting(**meeting.model_dump())
-    created_meeting.users.append(current_user)
-    db.add(created_meeting)
-    await db.commit()
-    await db.refresh(created_meeting, ["users"])
 
     return MeetingGet.model_validate(created_meeting)
 
 
-@meeting_router.post("/{meeting_id}/users/add_user/")
+@meeting_router.post(
+    "/{meeting_id}/users/add_user/",
+    response_model=UserRead,
+    status_code=status.HTTP_200_OK,
+    summary="Добавить пользователя на встречу",
+    description="Добавляет существующего пользователя в список участников встречи.",
+)
 async def add_user_to_meeting(
     meeting_id: int,
     user_email: str,
     current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
-    # Single query: meeting + participants + their team roles (N+1 prevention)
-    result = await db.scalars(
-        select(Meeting)
-        .options(
-            joinedload(Meeting.users).joinedload(
-                User.team_link
-            )  # Eager load avoids lazy loading
-        )
-        .where(Meeting.id == meeting_id)
+    meeting_service=Depends(get_meeting_service),
+) -> UserRead:
+    """
+    Добавить пользователя в участники встречи.
+
+    Проверки:
+    - Встреча существует.
+    - Пользователь с указанным email существует.
+    - Текущий пользователь имеет право добавлять участников (логика внутри сервиса).
+    - Пользователь ещё не добавлен в эту встречу.
+
+    Возвращает:
+    - Схему UserRead для добавленного участника.
+    """
+    db_meeting, db_user = await meeting_service.add_user_to_meeting(
+        current_user, user_email, meeting_id
     )
-    db_meeting = result.unique().one_or_none()
-
-    if not db_meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-
-    # Authorization: Admin OR (Manager AND participant)
-    is_admin = current_user.role == RoleCompany.ADMIN
-    is_manager = await has_manager_rights(current_user.id, db)
-
-    # Check if current_user participates in this meeting
-    is_participant = any(user.id == current_user.id for user in db_meeting.users)
-
-    if not (is_admin or (is_manager and is_participant)):
-        raise HTTPException(status_code=403, detail="Insufficient rights")
-
-    user_result = await db.scalars(select(User).where(User.email == user_email))
-    db_user = user_result.one_or_none()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if any(user.id == db_user.id for user in db_meeting.users):
-        raise HTTPException(status_code=409, detail="User already in meeting")
-
-    # Adding with relationship
-    db_meeting.users.append(db_user)
-    await db.commit()
-    await db.refresh(db_meeting)
-
-    return {
-        "message": "User added to meeting",
-        "meeting_user": {
-            "title_meeting": db_meeting.title,
-            "user_email": db_user.email,
-        },
-    }
+    return UserRead.model_validate(db_user)
 
 
 @meeting_router.get(
     "/{meeting_id}",
     response_model=MeetingGet,
-    summary="Get meeting by title",
-    description="Admins see any meeting. Others see only their meetings.",
+    summary="Получить встречу по id",
+    description="Администраторы видят любые встречи. "
+                "Остальные пользователи видят только встречи, в которых участвуют.",
 )
 async def get_meeting(
     meeting_id: int,
     current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
-):
+    meeting_service=Depends(get_meeting_service),
+) -> MeetingGet:
     """
-    Retrieve meeting by title with role-based access.
+    Получить встречу по её идентификатору с учётом прав доступа.
 
-    Args:
-        meeting_id: Meeting id (path parameter)
+    Логика доступа:
+    - Администратор компании может просматривать любые встречи.
+    - Остальные пользователи могут видеть только те встречи, где они являются участниками.
+    - Для скрытия факта существования встречи при отсутствии прав возвращается 404.
 
-    Raises:
-        HTTP 404: Meeting not found or access denied
+    Параметры:
+    - meeting_id: идентификатор встречи (path-параметр).
+
+    Исключения:
+    - HTTP 404: Встреча не найдена или доступ к ней запрещён.
+
+    Возвращает:
+    - Схему MeetingGet с подробной информацией о встрече.
     """
-    result_meeting = await db.scalars(
-        select(Meeting)
-        .options(joinedload(Meeting.users))
-        .where(Meeting.id == meeting_id)
-    )
-    db_meeting = result_meeting.unique().one_or_none()
-    if not db_meeting:
+    try:
+        db_meeting = await meeting_service.get_meeting(current_user, meeting_id)
+    except LookupError as exc:
         raise HTTPException(
-            status_code=404, detail="Meeting not found or access denied"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc) or "meeting_not_found",
         )
-
-    if current_user.role is RoleCompany.ADMIN:
-        return MeetingGet.model_validate(db_meeting)
-    else:
-        is_participant = any(user.id == current_user.id for user in db_meeting.users)
-        if not is_participant:
-            raise HTTPException(
-                status_code=404, detail="Meeting not found or access denied"
-            )
     return MeetingGet.model_validate(db_meeting)
 
 
 @meeting_router.delete(
     "/{meeting_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete meeting",
-    description="""
-    **Admin**: Can delete any meeting.
-
-    **Team Manager**: Can delete only meetings where they are a participant.
-
-    Cascade deletes meeting_participants associations automatically.
-    """,
+    summary="Удалить встречу",
+    description=(
+        "Администратор компании может удалить любую встречу. "
+        "Менеджер команды может удалить только встречи, в которых сам участвует. "
+        "Связи с участниками (meeting_participants) удаляются каскадно."
+    ),
 )
 async def delete_meeting(
     meeting_id: int,
     current_user: User = Depends(current_active_user),
-    db: AsyncSession = Depends(get_async_session),
+    meeting_service=Depends(get_meeting_service),
 ) -> None:
     """
-    Delete meeting with strict participant-based authorization for managers.
+    Удалить встречу с жёсткой проверкой прав доступа.
 
-    Authorization logic:
-        * Company Admin: Full access to any meeting
-        * Team Manager: Access only to meetings they participate in
-        * Others: Forbidden (403)
+    Логика авторизации:
+    - Администратор компании: может удалять любые встречи.
+    - Менеджер команды: может удалять только те встречи, в которых он является участником.
+    - Прочие пользователи: не имеют права на удаление (ошибка 403 внутри сервиса
+      может быть замаскирована под LookupError для возврата 404).
 
-    Raises:
-        HTTP 404: Meeting not found
-        HTTP 403: Insufficient rights (non-participant manager or regular user)
+    Исключения:
+    - HTTP 404: Встреча не найдена или пользователь не имеет права видеть/удалять её
+      (в зависимости от политики сокрытия).
+    - HTTP 403: Может использоваться, если явно разделяешь «нет доступа» и «не найдено».
 
-    Notes:
-        - Single query loads meeting + participants + roles (prevents N+1)
-        - Cascade='all, delete-orphan' on Meeting.users auto-cleans associations
+    Примечания:
+    - Благодаря настройке cascade в ORM-связях, при удалении встречи автоматически
+      удаляются записи в таблице связей участников.
+
+    Возвращает:
+    - 204 No Content при успешном удалении.
     """
-    # Single query: meeting + participants + their team roles (N+1 prevention)
-    result = await db.scalars(
-        select(Meeting)
-        .options(
-            joinedload(Meeting.users).joinedload(
-                User.team_link
-            )  # Eager load avoids lazy loading
+    try:
+        await meeting_service.delete_meeting(current_user, meeting_id)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc) or "meeting_not_found",
         )
-        .where(Meeting.id == meeting_id)
-    )
-    db_meeting = result.unique().one_or_none()
-
-    if not db_meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-
-    # Authorization: Admin OR (Manager AND participant)
-    is_admin = current_user.role == RoleCompany.ADMIN
-    is_manager = await has_manager_rights(current_user.id, db)
-
-    # Check if current_user participates in this meeting
-    is_participant = any(user.id == current_user.id for user in db_meeting.users)
-
-    if not (is_admin or (is_manager and is_participant)):
-        raise HTTPException(status_code=403, detail="Insufficient rights")
-
-    # Cascade deletes meeting_participants rows automatically
-    await db.delete(db_meeting)
-    await db.commit()
 
     return None  # 204 No Content

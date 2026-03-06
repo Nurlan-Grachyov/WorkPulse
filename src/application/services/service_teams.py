@@ -1,12 +1,11 @@
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy.exc import SQLAlchemyError
-
+from src.application.schemas.scheme_team import TeamCreate
 from src.application.schemas.scheme_user import RoleTeam
 from src.domain.policies.team_permissions import UniqueRolesPolicy
 from src.domain.teams.repositories import TeamRepository
-from src.infrastructure.db.models.db_team import TeamUser
+from src.infrastructure.db.models.db_team import Team, TeamUser
 from src.infrastructure.db.models.db_user import User
 
 
@@ -14,31 +13,32 @@ class TeamService:
     def __init__(self, teams: TeamRepository):
         self._teams = teams
 
-    async def get_team_by_title_or_slug(self, title: str = None, slug: str = None):
-        team = None
-        if title:
-            team = await self._teams.get_team_by_title_or_slug(title=title)
-        elif slug:
-            team = await self._teams.get_team_by_title_or_slug(slug=slug)
-
+    async def get_team_by_title_or_slug(
+        self, title: str = None, slug: str = None
+    ) -> Team:
+        team = await self._teams.get_team_by_title_or_slug(title=title, slug=slug)
         if team is None:
-            raise LookupError("team_no_found")
+            raise LookupError("team_not_found")
         return team
 
-    async def create_team(self, team_in):
+    async def create_team(self, team_in: TeamCreate) -> Team:
         try:
-            existing_team = await self.get_team_by_title_or_slug(title=team_in.title_team)
-            if existing_team:
-                raise ValueError("task_exists")
+            await self.get_team_by_title_or_slug(title=team_in.title_team)
+            raise ValueError("team_exists")
         except LookupError:
             pass
 
+        created_team = await self._teams.create_team(team_in)
+
         try:
-            created_team = await self._teams.create_team(team_in)
-            if created_team:
-                await self._teams.save(created_team)
-        except SQLAlchemyError:
+            await self._teams.save(created_team)
+        except ValueError as exc:
+            # integrity_error из save — значит, unique в БД сработал
+            if "integrity_error" in str(exc):
+                raise ValueError("team_exists") from exc
             raise
+
+        return created_team
 
     async def get_users_of_team(self, slug_team: str) -> Sequence[User] | None:
         team = await self._teams.get_team_by_title_or_slug(slug=slug_team)
@@ -49,7 +49,7 @@ class TeamService:
         return await self._teams.check_user_in_team(user_id, team_id)
 
     async def add_user_to_team(
-            self, slug_team: str, user_id: UUID, role: RoleTeam
+        self, slug_team: str, user_id: UUID, role: RoleTeam
     ) -> TeamUser:
         try:
             team = await self.get_team_by_title_or_slug(slug=slug_team)

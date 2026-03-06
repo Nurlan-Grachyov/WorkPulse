@@ -79,7 +79,7 @@ class SqlAlchemyUserRepository:
 
         if db_user is None:
             raise LookupError("user_not_found")
-        return user_model_to_entity(db_user)
+        return db_user
 
     async def update_user(self, user: User):
         result = await self._session.scalars(

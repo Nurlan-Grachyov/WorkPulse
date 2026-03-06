@@ -14,9 +14,18 @@ from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 task_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-def get_task_services(
+async def get_task_services(
     db: AsyncSession = Depends(get_async_session),
 ) -> tuple[TaskService, UserService]:
+    """
+    Возвращает сервисы задач и пользователей, основанные на общей async-сессии БД.
+
+    Создаёт:
+    - репозиторий задач и оборачивает его в TaskService с политикой доступа;
+    - репозиторий пользователей и оборачивает его в UserService.
+
+    Используется как зависимость в роутерах задач.
+    """
     task_repo = SqlAlchemyTaskRepository(db)
     policy = RoleBasedTaskAccessPolicy()
 
@@ -31,25 +40,51 @@ def get_task_services(
     "/{slug_task}",
     response_model=TaskGet,
     status_code=200,
+    summary="Получить задачу по slug",
+    description="Возвращает задачу по slug с учётом прав доступа пользователя.",
 )
 async def get_task(
     slug_task: str,
     current_user: User = Depends(current_active_user),
     services=Depends(get_task_services),
 ) -> TaskGet:
+    """
+    Получить одну задачу по её slug.
+
+    Доступ:
+    - Конкретные права определяются политикой RoleBasedTaskAccessPolicy внутри сервиса.
+
+    Возвращает:
+    - Схему TaskGet с подробной информацией о задаче.
+    """
     task_service, user_service = services
     try:
         task = await task_service.get_task_by_slug_for_team(slug_task)
         return TaskGet.model_validate(task)
     except LookupError:
-        raise HTTPException(404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="Task not found")
 
 
-@task_router.get("/", response_model=list[TaskGet], status_code=200)
+@task_router.get(
+    "/",
+    response_model=list[TaskGet],
+    status_code=200,
+    summary="Получить список задач",
+    description="Возвращает список задач, доступных текущему пользователю.",
+)
 async def get_all_task(
     current_user: User = Depends(current_active_user),
     services=Depends(get_task_services),
 ) -> list[TaskGet]:
+    """
+    Получить список всех задач, доступных текущему пользователю.
+
+    Фактический набор задач определяется политикой доступа и реализацией сервиса задач.
+    Возвращаются только те задачи, которые пользователь имеет право видеть.
+
+    Возвращает:
+    - Список схем TaskGet.
+    """
     task_service, user_service = services
 
     tasks = await task_service.get_all_task(current_user)
@@ -60,36 +95,73 @@ async def get_all_task(
     "/create_task",
     response_model=TaskGet,
     status_code=201,
+    summary="Создать задачу",
+    description="Создаёт новую задачу с учётом прав доступа и уникальности slug.",
 )
 async def create_task(
     task: TaskCreate,
     current_user: User = Depends(current_active_user),
     services=Depends(get_task_services),
-):
+) -> TaskGet:
+    """
+    Создать новую задачу.
+
+    Проверки:
+    - Текущий пользователь имеет право создавать задачи (по политике RoleBasedTaskAccessPolicy).
+    - Исполнитель задачи существует (если указан).
+    - Slug задачи уникален.
+
+    Возвращает:
+    - Схему TaskGet для только что созданной задачи.
+    """
     task_service, user_service = services
     try:
         data = task.model_dump(exclude_unset=True)
         created_task = await task_service.add_task(data, current_user)
         return TaskGet.model_validate(created_task)
     except PermissionError:
-        raise HTTPException(409, detail="You dont have enough rights")
+        raise HTTPException(
+            status_code=409,
+            detail="You dont have enough rights",
+        )
     except LookupError:
-        raise HTTPException(404, detail="Assignee is not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Assignee is not found",
+        )
     except ValueError:
-        raise HTTPException(409, detail="Task`s slug already exists")
+        raise HTTPException(
+            status_code=409,
+            detail="Task`s slug already exists",
+        )
 
 
 @task_router.patch(
     "/{slug_task}",
     response_model=TaskGet,
     status_code=200,
+    summary="Обновить задачу",
+    description="Обновляет поля задачи по slug с учётом прав доступа текущего пользователя.",
 )
 async def update_task(
     slug_task: str,
     task: TaskUpdate,
     current_user: User = Depends(current_active_user),
     services=Depends(get_task_services),
-):
+) -> TaskGet:
+    """
+    Обновить существующую задачу по её slug.
+
+    Проверки:
+    - Задача существует.
+    - Текущий пользователь имеет право изменять эту задачу
+      (например, автор, исполнитель или администратор команды/системы).
+
+    Обновляются только те поля, которые переданы (partial update).
+
+    Возвращает:
+    - Обновлённую схему TaskGet.
+    """
     task_service, user_service = services
     try:
         update_data = task.model_dump(exclude_unset=True)
@@ -99,20 +171,39 @@ async def update_task(
         )
         return TaskGet.model_validate(updated_task)
     except LookupError:
-        raise HTTPException(409, detail="You dont have enough rights")
+        raise HTTPException(
+            status_code=409,
+            detail="You dont have enough rights",
+        )
 
 
 @task_router.delete(
     "/{slug_task}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Удалить задачу",
+    description="Удаляет задачу по slug с учётом прав доступа текущего пользователя.",
 )
 async def delete_task(
     slug_task: str,
     current_user: User = Depends(current_active_user),
     services=Depends(get_task_services),
-):
+) -> None:
+    """
+    Удалить задачу по её slug.
+
+    Проверки:
+    - Задача существует.
+    - Текущий пользователь имеет достаточные права для удаления задачи
+      (например, автор, владелец команды или администратор в соответствии с политикой доступа).
+
+    Возвращает:
+    - 204 No Content при успешном удалении.
+    """
     task_service, user_service = services
     try:
         await task_service.delete_task(slug_task, current_user)
     except LookupError:
-        raise HTTPException(409, detail="You dont have enough rights")
+        raise HTTPException(
+            status_code=409,
+            detail="You dont have enough rights",
+        )
