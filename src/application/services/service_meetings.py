@@ -16,6 +16,7 @@ class MeetingService:
         RoleBasedMeetingAccessPolicy().ensure_can_create(user_with_team_link)
         if await self._meeting.check_time_meeting(user, meeting.starts_at):
             raise LookupError
+        print(meeting)
         created_meeting = Meeting(**meeting.model_dump())
         created_meeting.users.append(user)
         await self._meeting.save(created_meeting)

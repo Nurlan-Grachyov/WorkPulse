@@ -47,12 +47,9 @@ class SqlAlchemyTeamRepository(TeamRepository):
         users = (await self._session.scalars(stmt)).all()
         return users
 
-    async def check_user_in_team(self, user_id: UUID, team_id: int) -> TeamUser | None:
+    async def check_user_in_team(self, user_id: UUID) -> TeamUser | None:
         result_existing_link = await self._session.scalars(
-            select(TeamUser).where(
-                and_(TeamUser.team_id == team_id, TeamUser.user_id == user_id)
-            )
-        )
+            select(TeamUser).where(TeamUser.user_id == user_id))
         existing_link = result_existing_link.one_or_none()
         if existing_link:
             return existing_link

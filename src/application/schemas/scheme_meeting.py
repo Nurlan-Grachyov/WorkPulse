@@ -30,12 +30,14 @@ class MeetingCreate(BaseModel):
                 raise ValueError(
                     "Invalid datetime format, expected 'YYYY-MM-DD HH:MM:SS'"
                 )
+        return v
 
     @field_validator("starts_at", mode="after")
     @classmethod
     def check_date(cls, v):
         if v < datetime.now():
             raise ValueError("Can not create a meeting with past date")
+        return v
 
 
 class MeetingGet(BaseModel):

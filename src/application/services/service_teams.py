@@ -45,8 +45,8 @@ class TeamService:
         users = await self._teams.get_users_of_team(slug_team)
         return users
 
-    async def check_user_in_team(self, user_id: UUID, team_id: int) -> TeamUser | None:
-        return await self._teams.check_user_in_team(user_id, team_id)
+    async def check_user_in_team(self, user_id: UUID) -> TeamUser | None:
+        return await self._teams.check_user_in_team(user_id)
 
     async def add_user_to_team(
         self, slug_team: str, user_id: UUID, role: RoleTeam
@@ -56,7 +56,7 @@ class TeamService:
         except LookupError:
             raise
 
-        existing_link = await self.check_user_in_team(user_id, team.id)
+        existing_link = await self.check_user_in_team(user_id)
         if existing_link:
             raise ValueError
 

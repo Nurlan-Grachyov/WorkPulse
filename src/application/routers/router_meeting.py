@@ -60,6 +60,7 @@ async def create_meeting(
     Возвращает:
     - Схему MeetingGet с данными созданной встречи.
     """
+    print(meeting)
     try:
         user = await user_service.get_user_with_team_link(email=current_user.email)
     except LookupError:
