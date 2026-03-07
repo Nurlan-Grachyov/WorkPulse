@@ -1,7 +1,7 @@
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -49,7 +49,8 @@ class SqlAlchemyTeamRepository(TeamRepository):
 
     async def check_user_in_team(self, user_id: UUID) -> TeamUser | None:
         result_existing_link = await self._session.scalars(
-            select(TeamUser).where(TeamUser.user_id == user_id))
+            select(TeamUser).where(TeamUser.user_id == user_id)
+        )
         existing_link = result_existing_link.one_or_none()
         if existing_link:
             return existing_link

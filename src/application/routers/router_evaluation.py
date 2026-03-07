@@ -125,4 +125,4 @@ async def get_evaluations(
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc) or "database_error")
 
-    return evaluations
+    return [EvaluationGet.model_validate(evaluation) for evaluation in evaluations]

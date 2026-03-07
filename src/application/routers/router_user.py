@@ -46,7 +46,7 @@ async def get_users(
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    return users
+    return [UserRead.model_validate(user) for user in users]
 
 
 @user_router.get(
@@ -73,7 +73,7 @@ async def get_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return user
+    return UserRead.model_validate(user)
 
 
 @user_router.patch(
@@ -112,7 +112,7 @@ async def update_user(
             detail="User not found",
         )
 
-    return user
+    return UserRead.model_validate(user)
 
 
 @user_router.delete(

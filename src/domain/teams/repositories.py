@@ -19,9 +19,7 @@ class TeamRepository(Protocol):
 
     async def get_users_of_team(self, slug_team: str) -> Sequence[User]: ...
 
-    async def check_user_in_team(
-        self, user_id: UUID
-    ) -> TeamUser | None: ...
+    async def check_user_in_team(self, user_id: UUID) -> TeamUser | None: ...
 
     async def add_user_to_team(
         self, team_id: int, user_id: UUID, role: RoleTeam
