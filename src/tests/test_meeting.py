@@ -3,12 +3,6 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from src.application.routers.router_meeting import (
-    add_user_to_meeting,
-    create_meeting,
-    delete_meeting,
-    get_meeting,
-)
 from src.application.schemas.scheme_meeting import MeetingCreate
 from src.application.services.service_meetings import MeetingService
 from src.infrastructure.db.models.db_meeting import Meeting
@@ -34,11 +28,11 @@ async def test_create_meeting(create_team_with_users, team_manager_user, db_sess
 
 @pytest.mark.asyncio
 async def test_add_user_to_meeting(
-        create_team_with_users,
-        create_test_meeting,
-        team_manager_user,
-        usual_user,
-        db_session,
+    create_team_with_users,
+    create_test_meeting,
+    team_manager_user,
+    usual_user,
+    db_session,
 ):
     user_repo = SqlAlchemyUserRepository(db_session)
     meeting_repo = SqlAlchemyMeetingRepository(db_session)
@@ -49,6 +43,7 @@ async def test_add_user_to_meeting(
     )
     assert db_meeting.title == "first meeting"
     assert db_user.role == "user"
+
 
 @pytest.mark.asyncio
 async def test_get_meeting(
@@ -61,7 +56,9 @@ async def test_get_meeting(
     meeting = await meeting_service.get_meeting(admin_user, create_test_meeting.id)
     assert meeting.title == "first meeting"
 
-    meeting = await meeting_service.get_meeting(team_manager_user, create_test_meeting.id)
+    meeting = await meeting_service.get_meeting(
+        team_manager_user, create_test_meeting.id
+    )
     assert meeting.title == "first meeting"
 
 

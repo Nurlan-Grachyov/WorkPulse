@@ -8,7 +8,7 @@ from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 
 @pytest.mark.asyncio
 async def test_create_evaluation(
-        create_test_task, create_team_with_users, team_manager_user, db_session
+    create_test_task, create_team_with_users, team_manager_user, db_session
 ):
     user_repo = SqlAlchemyUserRepository(db_session)
     evaluation_repo = SqlAlchemyEvaluationRepository(db_session)

@@ -1,17 +1,7 @@
-from uuid import UUID
-
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.routers.router_team import (
-    add_user_to_team,
-    change_role_user,
-    create_team,
-    delete_team,
-    get_users_of_team,
-)
 from src.application.schemas.scheme_team import TeamCreate
 from src.application.schemas.scheme_user import RoleTeam
 from src.application.services.service_teams import TeamService
@@ -50,7 +40,7 @@ async def test_get_users_of_team(create_team_with_users, admin_user, db_session)
 
 @pytest.mark.asyncio
 async def test_change_role_user(
-        create_team_with_users, admin_user, team_manager_user, db_session
+    create_team_with_users, admin_user, team_manager_user, db_session
 ):
     team_repo = SqlAlchemyTeamRepository(db_session)
     team_service = TeamService(team_repo)

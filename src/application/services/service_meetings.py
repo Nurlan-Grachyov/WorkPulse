@@ -58,7 +58,9 @@ class MeetingService:
 
     async def delete_meeting(self, current_user: User, meeting_id: int):
         meeting = await self.get_meeting(current_user, meeting_id)
-        user_with_team_link = await self._user.get_user_with_team_link(current_user.slug)
+        user_with_team_link = await self._user.get_user_with_team_link(
+            current_user.slug
+        )
         if meeting and RoleBasedMeetingAccessPolicy().ensure_can_update_delete(
             user_with_team_link, meeting
         ):

@@ -1,13 +1,6 @@
 import pytest
 from sqlalchemy import select
 
-from src.application.routers.router_comment import (
-    create_comment,
-    delete_comment,
-    get_comments_by_task,
-    get_comments_by_user,
-    update_comment,
-)
 from src.application.schemas.scheme_comment import CommentCreate, CommentUpdate
 from src.application.services.service_comments import CommentService
 from src.infrastructure.comments.repositories import SqlAlchemyCommentRepository
@@ -33,9 +26,7 @@ async def test_get_comments_by_task(create_test_task, team_manager_user, db_sess
     comment_repo = SqlAlchemyCommentRepository(db_session)
     comment_service = CommentService(comment_repo, task_repo)
 
-    comments = await comment_service.get_comments_by_task(
-        create_test_task.id
-    )
+    comments = await comment_service.get_comments_by_task(create_test_task.id)
     for comment in comments:
         assert comment.text == "Some comment"
         assert comment.task_id == create_test_task.id
@@ -47,9 +38,7 @@ async def test_get_comments_by_user(create_test_task, team_manager_user, db_sess
     comment_repo = SqlAlchemyCommentRepository(db_session)
     comment_service = CommentService(comment_repo, task_repo)
 
-    comments = await comment_service.get_comments_by_user(
-        team_manager_user.email
-    )
+    comments = await comment_service.get_comments_by_user(team_manager_user.email)
     for comment in comments:
         assert comment.text == "Some comment"
         assert comment.task_id == create_test_task.id

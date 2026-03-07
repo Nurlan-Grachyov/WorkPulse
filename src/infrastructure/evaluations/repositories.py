@@ -3,7 +3,6 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from src.application.schemas.scheme_evaluation import EvaluationCreate
 from src.domain.evaluations.repositories import EvaluationRepository
 from src.infrastructure.db.models.db_evaluation import Evaluation
 from src.infrastructure.db.models.db_task import Task

@@ -30,7 +30,7 @@ async def test_create_task(db_session, create_team_with_users, team_manager_user
 
 @pytest.mark.asyncio
 async def test_get_task(
-        db_session, create_team_with_users, team_manager_user, create_test_task
+    db_session, create_team_with_users, team_manager_user, create_test_task
 ):
     policy = RoleBasedTaskAccessPolicy()
     task_repo = SqlAlchemyTaskRepository(db_session)
@@ -42,7 +42,7 @@ async def test_get_task(
 
 @pytest.mark.asyncio
 async def test_get_task(
-        db_session, create_team_with_users, admin_user, create_test_task
+    db_session, create_team_with_users, admin_user, create_test_task
 ):
     policy = RoleBasedTaskAccessPolicy()
     task_repo = SqlAlchemyTaskRepository(db_session)
@@ -54,7 +54,7 @@ async def test_get_task(
 
 @pytest.mark.asyncio
 async def test_update_task(
-        db_session, create_team_with_users, team_manager_user, create_test_task
+    db_session, create_team_with_users, team_manager_user, create_test_task
 ):
     policy = RoleBasedTaskAccessPolicy()
     task_repo = SqlAlchemyTaskRepository(db_session)
@@ -71,7 +71,7 @@ async def test_update_task(
 @pytest.mark.xfail
 @pytest.mark.asyncio
 async def test_delete_task(
-        db_session, create_team_with_users, team_manager_user, create_test_task
+    db_session, create_team_with_users, team_manager_user, create_test_task
 ):
     policy = RoleBasedTaskAccessPolicy()
     task_repo = SqlAlchemyTaskRepository(db_session)

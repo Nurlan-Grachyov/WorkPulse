@@ -29,6 +29,7 @@ async def test_get_user_by_slug(team_manager_user, db_session: AsyncSession):
     user = await user_service.get_user(slug="user")
     assert "user" == user.slug
 
+
 @pytest.mark.asyncio
 async def test_get_user_with_team_link(team_manager_user, db_session: AsyncSession):
     user_repo = SqlAlchemyUserRepository(db_session)
@@ -38,6 +39,7 @@ async def test_get_user_with_team_link(team_manager_user, db_session: AsyncSessi
 
     user = await user_service.get_user_with_team_link(slug="user")
     assert "user" == user.slug
+
 
 @pytest.mark.asyncio
 async def test_update_user(db_session, admin_user, team_manager_user):

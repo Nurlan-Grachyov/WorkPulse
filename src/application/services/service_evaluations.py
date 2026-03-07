@@ -23,7 +23,9 @@ class EvaluationService:
         )
         RoleBasedEvaluationAccessPolicy().ensure_can_create(user_with_team_link, task)
 
-        evaluation = Evaluation(evaluation=evaluation.evaluation, task_id=evaluation.task_id)
+        evaluation = Evaluation(
+            evaluation=evaluation.evaluation, task_id=evaluation.task_id
+        )
         await self._evaluation.save(evaluation)
         return evaluation
 
@@ -35,7 +37,9 @@ class EvaluationService:
         return task
 
     async def get_evaluations(self, current_user: User):
-        user_with_team_link = await self._users.get_user_with_team_link(email=current_user.email)
+        user_with_team_link = await self._users.get_user_with_team_link(
+            email=current_user.email
+        )
         # Администратор: все команды → команда → юзеры → задачи
         if await is_admin(current_user):
             teams = await self._evaluation.get_all_evaluations()
