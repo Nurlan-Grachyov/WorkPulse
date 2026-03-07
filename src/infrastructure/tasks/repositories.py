@@ -70,7 +70,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
         # 2. Исполнитель в той же команде
         assignee_result = await self._session.scalars(
             select(User).where(
-                User.id == task.get("assignee_id"),
+                User.email == task.get("assignee_email"),
                 User.is_active,
                 User.team_link.has(TeamUser.team_id == team_id),
             )
@@ -79,15 +79,14 @@ class SqlAlchemyTaskRepository(TaskRepository):
         if assignee is None:
             raise LookupError("assignee_not_found")
 
-        # 3. Проверка уникальности slug в команде
+        # 3. Проверка уникальности title в команде
         task_result = await self._session.scalars(
             select(Task).where(
-                Task.slug == task.get("slug"),
+                Task.title == task.get("title"),
                 Task.team_id == team_id,
             )
         )
         existing_task = task_result.one_or_none()
-
         return author, assignee, existing_task
 
     async def update_task(
@@ -145,7 +144,8 @@ class SqlAlchemyTaskRepository(TaskRepository):
 
         return author, task_model
 
-    async def save(self, task) -> None:
+    async def save(self, task: Task) -> None:
+        print("save")
         self._session.add(task)
         await self._session.commit()
         await self._session.refresh(task)

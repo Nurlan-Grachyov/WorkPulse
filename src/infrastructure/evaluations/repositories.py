@@ -5,6 +5,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from src.application.schemas.scheme_evaluation import EvaluationCreate
 from src.domain.evaluations.repositories import EvaluationRepository
+from src.infrastructure.db.models.db_evaluation import Evaluation
 from src.infrastructure.db.models.db_task import Task
 from src.infrastructure.db.models.db_team import Team, TeamUser
 from src.infrastructure.db.models.db_user import User
@@ -58,7 +59,7 @@ class SqlAlchemyEvaluationRepository(EvaluationRepository):
 
         return db_user
 
-    async def save(self, evaluation: EvaluationCreate) -> None:
+    async def save(self, evaluation: Evaluation) -> None:
         try:
             self._session.add(evaluation)
             await self._session.commit()

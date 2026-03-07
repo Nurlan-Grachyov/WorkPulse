@@ -15,8 +15,9 @@ class CommentService:
     async def create_comment(
         self, comment: CommentCreate, current_user: User
     ) -> Comment:
-        await self._task.get_task_by_id(comment.id)
+        await self._task.get_task_by_id(comment.task_id)
         comment = Comment(**comment.model_dump(), user_id=current_user.id)
+        await self._comment.save(comment)
         return comment
 
     async def get_comments_by_task(self, task_id: int):

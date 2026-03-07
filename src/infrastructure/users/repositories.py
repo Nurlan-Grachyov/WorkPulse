@@ -73,7 +73,7 @@ class SqlAlchemyUserRepository:
             user = await self._session.scalars(
                 select(UserModel)
                 .options(joinedload(UserModel.team_link))
-                .where(UserModel.slug == slug)
+                .where(UserModel.email == email)
             )
             db_user = user.one_or_none()
 

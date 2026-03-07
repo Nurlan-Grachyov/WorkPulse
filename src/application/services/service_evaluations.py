@@ -4,6 +4,7 @@ from src.domain.evaluations.services import _aggregate_user_tasks
 from src.domain.policies.evaluation_permissions import RoleBasedEvaluationAccessPolicy
 from src.domain.policies.global_permissions import is_admin, is_manager
 from src.domain.users.repositories import UserRepository
+from src.infrastructure.db.models.db_evaluation import Evaluation
 from src.infrastructure.db.models.db_user import User
 
 
@@ -22,7 +23,9 @@ class EvaluationService:
         )
         RoleBasedEvaluationAccessPolicy().ensure_can_create(user_with_team_link, task)
 
+        evaluation = Evaluation(evaluation=evaluation.evaluation, task_id=evaluation.task_id)
         await self._evaluation.save(evaluation)
+        return evaluation
 
     async def get_tasks_evaluation(self, task_id):
         task = await self._evaluation.get_tasks_evaluation(task_id)

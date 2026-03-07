@@ -118,6 +118,7 @@ async def create_task(
     try:
         data = task.model_dump(exclude_unset=True)
         created_task = await task_service.add_task(data, current_user)
+        print("router")
         return TaskGet.model_validate(created_task)
     except PermissionError:
         raise HTTPException(

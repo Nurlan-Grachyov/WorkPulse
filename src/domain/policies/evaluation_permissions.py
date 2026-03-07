@@ -19,7 +19,7 @@ class RoleBasedEvaluationAccessPolicy(EvaluationAccessPolicy):
         if current_user.team_link.role is not RoleTeam.MANAGER:
             raise PermissionError("manager_or_admin_access_only")
 
-        if any(user.id == current_user.id for user in task.evaluation):
+        if current_user.team_link.team_id != task.team_id:
             raise PermissionError("You don`t exist at this meeting")
 
         return True

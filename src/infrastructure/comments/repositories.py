@@ -44,7 +44,7 @@ class SqlAlchemyCommentRepository:
         )
         return result.one_or_none()
 
-    async def save(self, obj):
+    async def save(self, obj: Comment):
         self._session.add(obj)
         try:
             await self._session.commit()

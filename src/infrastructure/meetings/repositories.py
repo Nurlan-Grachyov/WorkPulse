@@ -57,7 +57,7 @@ class SqlAlchemyMeetingRepository(MeetingRepository):
 
         return db_meeting
 
-    async def save(self, meeting) -> None:
+    async def save(self, meeting: Meeting) -> None:
         self._session.add(meeting)
         await self._session.commit()
         await self._session.refresh(meeting)
