@@ -35,8 +35,9 @@ class EvaluationService:
         return task
 
     async def get_evaluations(self, current_user: User):
+        user_with_team_link = await self._users.get_user_with_team_link(email=current_user.email)
         # Администратор: все команды → команда → юзеры → задачи
-        if is_admin(current_user):
+        if await is_admin(current_user):
             teams = await self._evaluation.get_all_evaluations()
 
             teams_users_task_evaluations: dict[str, dict[str, dict]] = {}
@@ -61,7 +62,7 @@ class EvaluationService:
             return teams_users_task_evaluations
 
         # Менеджер: члены его команды (кроме него)
-        elif is_manager(current_user):
+        elif await is_manager(user_with_team_link):
             team_members = await self._evaluation.get_team_evaluations(current_user)
 
             users_task_evaluations: dict[str, dict] = {}

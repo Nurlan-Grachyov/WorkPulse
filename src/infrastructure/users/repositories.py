@@ -39,7 +39,7 @@ class SqlAlchemyUserRepository:
             select(UserModel).where(UserModel.is_active)
         )
         db_users = users.all()
-        return [user_model_to_entity(user) for user in db_users]
+        return db_users
 
     async def get_user(self, slug: str = None, email: str = None):
         db_user = None
@@ -57,7 +57,7 @@ class SqlAlchemyUserRepository:
 
         if db_user is None:
             raise LookupError("user_not_found")
-        return user_model_to_entity(db_user)
+        return db_user
 
     async def get_user_with_team_link(self, slug: str = None, email: str = None):
         db_user = None
@@ -88,10 +88,9 @@ class SqlAlchemyUserRepository:
         model = result.one_or_none()
         if model is None:
             raise LookupError("user_not_found")
-        model = user_entity_to_model(user, model=model)
         await self._session.commit()
         await self._session.refresh(model)
-        return user_model_to_entity(model)
+        return model
 
     async def delete_user(self, user: User):
         result_user = await self._session.scalars(

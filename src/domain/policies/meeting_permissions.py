@@ -25,7 +25,7 @@ class RoleBasedMeetingAccessPolicy(MeetingAccessPolicy):
         if current_user.team_link.role is not (RoleTeam.MANAGER or RoleCompany.ADMIN):
             raise PermissionError("manager_or_admin_access_only")
 
-        if any(user.id == current_user.id for user in db_meeting.users):
+        if any(user.id != current_user.id for user in db_meeting.users):
             raise PermissionError("You don`t exist at this meeting")
 
         return True

@@ -12,7 +12,8 @@ class MeetingService:
         self._user = user
 
     async def create_meeting(self, user: User, meeting: MeetingCreate):
-        RoleBasedMeetingAccessPolicy().ensure_can_create(user)
+        user_with_team_link = await self._user.get_user_with_team_link(user.slug)
+        RoleBasedMeetingAccessPolicy().ensure_can_create(user_with_team_link)
         if await self._meeting.check_time_meeting(user, meeting.starts_at):
             raise LookupError
         created_meeting = Meeting(**meeting.model_dump())
@@ -57,7 +58,8 @@ class MeetingService:
 
     async def delete_meeting(self, current_user: User, meeting_id: int):
         meeting = await self.get_meeting(current_user, meeting_id)
+        user_with_team_link = await self._user.get_user_with_team_link(current_user.slug)
         if meeting and RoleBasedMeetingAccessPolicy().ensure_can_update_delete(
-            current_user, meeting
+            user_with_team_link, meeting
         ):
             await self._meeting.delete(meeting)

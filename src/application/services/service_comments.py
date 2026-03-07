@@ -48,7 +48,7 @@ class CommentService:
             raise LookupError("comment_not_found")
 
         # автор или админ может удалить
-        if not (is_admin(current_user) or comment.user_id == current_user.id):
+        if not (await is_admin(current_user) or comment.user_id == current_user.id):
             raise PermissionError("cannot_delete_comment")
 
         try:

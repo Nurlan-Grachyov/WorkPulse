@@ -145,7 +145,6 @@ class SqlAlchemyTaskRepository(TaskRepository):
         return author, task_model
 
     async def save(self, task: Task) -> None:
-        print("save")
         self._session.add(task)
         await self._session.commit()
         await self._session.refresh(task)

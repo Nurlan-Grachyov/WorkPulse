@@ -28,12 +28,7 @@ class TaskService:
     async def add_task(self, task: dict, user: User) -> Task:
         author, assignee, existing_task = await self._tasks.add_task(task, user.id)
         self._policy.ensure_can_create(author)
-        print(repr(existing_task))
-        print(type(existing_task))
-        if existing_task is None:
-            print("EXACTLY NONE")
         if existing_task is not None:
-            print("whaaaat")
             raise ValueError("task_slug_exists")
 
         # сохраняем
