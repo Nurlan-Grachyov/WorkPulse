@@ -7,6 +7,7 @@ from src.application.routers.router_user import get_user_service
 from src.application.schemas.scheme_meeting import MeetingCreate, MeetingGet
 from src.application.schemas.scheme_user import UserRead
 from src.application.services.service_meetings import MeetingService
+from src.application.services.service_users import UserService
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.meetings.repositories import SqlAlchemyMeetingRepository
@@ -41,8 +42,8 @@ async def get_meeting_service(
 async def create_meeting(
     meeting: MeetingCreate,
     current_user: User = Depends(current_active_user),
-    meeting_service=Depends(get_meeting_service),
-    user_service=Depends(get_user_service),
+    meeting_service: MeetingService = Depends(get_meeting_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> MeetingGet:
     """
     Создать новую встречу с проверкой роли и пересечения по времени.
@@ -87,7 +88,7 @@ async def add_user_to_meeting(
     meeting_id: int,
     user_email: str,
     current_user: User = Depends(current_active_user),
-    meeting_service=Depends(get_meeting_service),
+    meeting_service: MeetingService = Depends(get_meeting_service),
 ) -> UserRead:
     """
     Добавить пользователя в участники встречи.
@@ -117,7 +118,7 @@ async def add_user_to_meeting(
 async def get_meeting(
     meeting_id: int,
     current_user: User = Depends(current_active_user),
-    meeting_service=Depends(get_meeting_service),
+    meeting_service: MeetingService = Depends(get_meeting_service),
 ) -> MeetingGet:
     """
     Получить встречу по её идентификатору с учётом прав доступа.
@@ -159,7 +160,7 @@ async def get_meeting(
 async def delete_meeting(
     meeting_id: int,
     current_user: User = Depends(current_active_user),
-    meeting_service=Depends(get_meeting_service),
+    meeting_service: MeetingService = Depends(get_meeting_service),
 ) -> None:
     """
     Удалить встречу с жёсткой проверкой прав доступа.

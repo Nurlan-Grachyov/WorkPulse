@@ -14,16 +14,16 @@ calendar_router = APIRouter(prefix="/calendar", tags=["calendar"])
 async def get_calendar_service(
     db: AsyncSession = Depends(get_async_session),
 ):
-    comment_repo = SqlAlchemyCalendarRepository(db)
-    comment_service = CalendarService(comment_repo)
-    return comment_service
+    calendar_repo = SqlAlchemyCalendarRepository(db)
+    calendar_service = CalendarService(calendar_repo)
+    return calendar_service
 
 
 @calendar_router.get("/")
 async def get_info(
     period: str = Query("day", pattern="^(day|month)$"),
     current_user: User = Depends(current_active_user),
-    calendar_service=Depends(get_calendar_service),
+    calendar_service: CalendarService = Depends(get_calendar_service),
 ):
     try:
         period_obj = CalendarPeriodFactory.create(period)

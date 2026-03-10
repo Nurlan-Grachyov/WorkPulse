@@ -10,6 +10,7 @@ from src.application.routers.router_user import get_user_service
 from src.application.schemas.scheme_team import TeamCreate, TeamGet
 from src.application.schemas.scheme_user import RoleTeam, UserReadWithTeamRole
 from src.application.services.service_teams import TeamService
+from src.application.services.service_users import UserService
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.teams.repositories import SqlAlchemyTeamRepository
@@ -41,7 +42,7 @@ async def get_team_service(
 async def create_team(
     team_in: TeamCreate,
     superuser: User = Depends(current_superuser),
-    service=Depends(get_team_service),
+    service: TeamService = Depends(get_team_service),
 ) -> TeamGet:
     """
     Создаёт новую команду в системе.
@@ -74,7 +75,7 @@ async def create_team(
 async def get_users_of_team(
     slug_team: str,
     superuser: User = Depends(current_superuser),
-    service=Depends(get_team_service),
+    service: TeamService = Depends(get_team_service),
 ) -> List[UserReadWithTeamRole]:
     """
     Получить список пользователей конкретной команды.
@@ -108,8 +109,8 @@ async def add_user_to_team(
     user_email: str,
     role: RoleTeam,
     superuser: User = Depends(current_superuser),
-    user_service=Depends(get_user_service),
-    team_service=Depends(get_team_service),
+    user_service: UserService = Depends(get_user_service),
+    team_service: TeamService = Depends(get_team_service),
 ):
     """
     Добавляет пользователя в команду, создавая запись связи TeamUser.
@@ -154,8 +155,8 @@ async def change_role_user(
     slug_team: str,
     slug_user: str,
     role_data: RoleTeam,
-    user_service=Depends(get_user_service),
-    team_service=Depends(get_team_service),
+    user_service: UserService = Depends(get_user_service),
+    team_service: TeamService = Depends(get_team_service),
     superuser: User = Depends(current_superuser),
 ):
     """
@@ -210,7 +211,7 @@ async def change_role_user(
 async def delete_team(
     slug_team: str,
     superuser: User = Depends(current_superuser),
-    team_service=Depends(get_team_service),
+    team_service: TeamService = Depends(get_team_service),
 ) -> None:
     """
     Удаляет команду по её slug с обработкой ошибок целостности данных.

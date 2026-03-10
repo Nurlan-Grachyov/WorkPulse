@@ -33,7 +33,7 @@ async def get_user_service(
 )
 async def get_users(
     current_active_user: User = Depends(current_active_user),
-    user_service=Depends(get_user_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> list[UserRead]:
     """
     Получить список всех пользователей.
@@ -60,7 +60,7 @@ async def get_users(
 async def get_user(
     slug: str,
     current_active_user: User = Depends(current_active_user),
-    user_service=Depends(get_user_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> UserRead:
     """
     Получить подробную информацию о пользователе по его slug.
@@ -87,7 +87,7 @@ async def update_user(
     user_email: str,
     data_for_update_user: UserUpdate,
     superuser: User = Depends(current_superuser),
-    user_service=Depends(get_user_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> UserRead:
     """
     Обновляет глобальную роль пользователя в компании.
@@ -124,7 +124,7 @@ async def update_user(
 async def delete_user(
     user_email: str,
     superuser: User = Depends(current_superuser),
-    user_service=Depends(get_user_service),
+    user_service: UserService = Depends(get_user_service),
 ) -> None:
     """
     Удаляет пользователя по email с дополнительными проверками безопасности.

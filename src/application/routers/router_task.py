@@ -4,19 +4,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.application.auth import current_active_user
 from src.application.schemas.scheme_task import TaskCreate, TaskGet, TaskUpdate
 from src.application.services.service_tasks import TaskService
-from src.application.services.service_users import UserService
 from src.domain.policies.task_permissions import RoleBasedTaskAccessPolicy
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.tasks.repositories import SqlAlchemyTaskRepository
-from src.infrastructure.users.repositories import SqlAlchemyUserRepository
 
 task_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 async def get_task_services(
     db: AsyncSession = Depends(get_async_session),
-) -> tuple[TaskService, UserService]:
+) -> TaskService:
     """
     Возвращает сервисы задач и пользователей, основанные на общей async-сессии БД.
 
@@ -29,11 +27,8 @@ async def get_task_services(
     task_repo = SqlAlchemyTaskRepository(db)
     policy = RoleBasedTaskAccessPolicy()
 
-    users_repo = SqlAlchemyUserRepository(db)
-    user_service = UserService(users_repo)
-
     task_service = TaskService(task_repo, policy)
-    return task_service, user_service
+    return task_service
 
 
 @task_router.get(
@@ -46,7 +41,7 @@ async def get_task_services(
 async def get_task(
     slug_task: str,
     current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+    service: TaskService = Depends(get_task_services),
 ) -> TaskGet:
     """
     Получить одну задачу по её slug.
@@ -57,9 +52,8 @@ async def get_task(
     Возвращает:
     - Схему TaskGet с подробной информацией о задаче.
     """
-    task_service, user_service = services
     try:
-        task = await task_service.get_task_by_slug_for_team(slug_task)
+        task = await service.get_task_by_slug_for_team(slug_task)
         return TaskGet.model_validate(task)
     except LookupError:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -74,7 +68,7 @@ async def get_task(
 )
 async def get_all_task(
     current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+    service: TaskService = Depends(get_task_services),
 ) -> list[TaskGet]:
     """
     Получить список всех задач, доступных текущему пользователю.
@@ -85,9 +79,8 @@ async def get_all_task(
     Возвращает:
     - Список схем TaskGet.
     """
-    task_service, user_service = services
 
-    tasks = await task_service.get_all_task(current_user)
+    tasks = await service.get_all_task(current_user)
     return [TaskGet.model_validate(task) for task in tasks]
 
 
@@ -101,7 +94,7 @@ async def get_all_task(
 async def create_task(
     task: TaskCreate,
     current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+    service: TaskService = Depends(get_task_services),
 ) -> TaskGet:
     """
     Создать новую задачу.
@@ -114,10 +107,9 @@ async def create_task(
     Возвращает:
     - Схему TaskGet для только что созданной задачи.
     """
-    task_service, user_service = services
     try:
         data = task.model_dump(exclude_unset=True)
-        created_task = await task_service.add_task(data, current_user)
+        created_task = await service.add_task(data, current_user)
         print("router")
         return TaskGet.model_validate(created_task)
     except PermissionError:
@@ -148,7 +140,7 @@ async def update_task(
     slug_task: str,
     task: TaskUpdate,
     current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+    service: TaskService = Depends(get_task_services),
 ) -> TaskGet:
     """
     Обновить существующую задачу по её slug.
@@ -163,13 +155,10 @@ async def update_task(
     Возвращает:
     - Обновлённую схему TaskGet.
     """
-    task_service, user_service = services
     try:
         update_data = task.model_dump(exclude_unset=True)
 
-        updated_task = await task_service.update_task(
-            slug_task, update_data, current_user
-        )
+        updated_task = await service.update_task(slug_task, update_data, current_user)
         return TaskGet.model_validate(updated_task)
     except LookupError:
         raise HTTPException(
@@ -187,7 +176,7 @@ async def update_task(
 async def delete_task(
     slug_task: str,
     current_user: User = Depends(current_active_user),
-    services=Depends(get_task_services),
+    service: TaskService = Depends(get_task_services),
 ) -> None:
     """
     Удалить задачу по её slug.
@@ -200,9 +189,8 @@ async def delete_task(
     Возвращает:
     - 204 No Content при успешном удалении.
     """
-    task_service, user_service = services
     try:
-        await task_service.delete_task(slug_task, current_user)
+        await service.delete_task(slug_task, current_user)
     except LookupError:
         raise HTTPException(
             status_code=409,

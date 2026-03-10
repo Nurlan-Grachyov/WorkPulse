@@ -6,6 +6,7 @@ from src.application.auth import current_active_user
 from src.application.routers.router_user import get_user_service
 from src.application.schemas.scheme_evaluation import EvaluationCreate, EvaluationGet
 from src.application.services.service_evaluations import EvaluationService
+from src.application.services.service_users import UserService
 from src.infrastructure.db.database import get_async_session
 from src.infrastructure.db.models.db_user import User
 from src.infrastructure.evaluations.repositories import SqlAlchemyEvaluationRepository
@@ -34,7 +35,7 @@ async def get_evaluation_services(
 async def create_evaluation(
     evaluation: EvaluationCreate,
     current_user: User = Depends(current_active_user),
-    evaluation_service=Depends(get_evaluation_services),
+    evaluation_service: EvaluationService = Depends(get_evaluation_services),
 ) -> EvaluationGet:
     """
     Создать оценку для задачи.
@@ -96,8 +97,8 @@ async def create_evaluation(
 )
 async def get_evaluations(
     current_user: User = Depends(current_active_user),
-    evaluation_service=Depends(get_evaluation_services),
-    user_service=Depends(get_user_service),
+    evaluation_service: EvaluationService = Depends(get_evaluation_services),
+    user_service: UserService = Depends(get_user_service),
 ):
     """
     Возвращает агрегированные оценки задач.

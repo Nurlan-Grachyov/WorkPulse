@@ -29,7 +29,7 @@ async def test_create_task(db_session, create_team_with_users, team_manager_user
 
 
 @pytest.mark.asyncio
-async def test_get_task(
+async def test_get_task_by_manager(
     db_session, create_team_with_users, team_manager_user, create_test_task
 ):
     policy = RoleBasedTaskAccessPolicy()
@@ -41,7 +41,7 @@ async def test_get_task(
 
 
 @pytest.mark.asyncio
-async def test_get_task(
+async def test_get_task_by_admin_user(
     db_session, create_team_with_users, admin_user, create_test_task
 ):
     policy = RoleBasedTaskAccessPolicy()
